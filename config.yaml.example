@@ -1,0 +1,67 @@
+# WEBUNTIS INTEGRATION CONFIGURATION
+
+# This file is parsed every minute to check for changes.
+# There is no need to restart the service after changing this file.
+# Keep in mind that a misconfiguration can lead to an outage or crash of the service.
+
+version: 1.0
+
+# User profiles
+users:
+
+  # TEMPLATE
+  - name: "template"
+
+    # WebUntis credentials
+    webuntis:
+      server: "example.webuntis.com"
+      username: "username"
+      password: "password"
+      school: "schoolname"
+
+    # Refresh profile
+    refresh: "default"
+
+# Refresh timestamp profiles
+refresh:
+
+  # Default timestamp profile for most users
+  - name: "default"
+
+    # Time of day to refresh the data on monday to friday
+    weekday:
+      - "05:00"
+      - "06:00"
+      - "06:30"
+      - "07:00"
+      - "07:30"
+      - "07:50"
+      - "08:35"
+      - "09:35"
+      - "10:20"
+      - "11:20"
+      - "12:05"
+      - "13:40"
+      - "14:30"
+      - "15:25"
+      - "16:10"
+      - "17:00"
+      - "18:00"
+      - "19:00"
+      - "20:00"
+      - "21:00"
+      - "22:00"
+      - "23:00"
+
+    # Time of day to refresh the data on weekend
+    weekend:
+      - "06:00"
+      - "09:00"
+      - "12:00"
+      - "15:00"
+      - "18:00"
+      - "19:00"
+      - "20:00"
+      - "21:00"
+      - "22:00"
+      - "23:00"
