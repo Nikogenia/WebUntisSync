@@ -1,9 +1,13 @@
 import fs from 'fs/promises';
 import YAML from 'js-yaml';
-import { WebUntis } from 'webuntis';
+import path from 'path';
+import process from 'process';
+import { fetchWebUntis, generateLessons } from './untis.js';
+import { authorize, getCalendar, uploadHolidays, uploadNews, uploadLessons } from './google.js';
 
 let config;
 let lastRefresh = {};
+const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
 async function cycle() {
     
@@ -36,7 +40,7 @@ async function cycle() {
             const [hours, minutes] = time.split(':').map(Number);
             const refreshTime = new Date();
             refreshTime.setHours(hours, minutes, 0, 0);
-            if (now >= refreshTime && (!lastRefresh[user.name] || lastRefresh[user.name] < refreshTime)) {
+            if (now >= refreshTime && (!lastRefresh[user.name] || (lastRefresh[user.name] < refreshTime && now - lastRefresh[user.name] >= 5 * 60 * 1000))) {
                 console.info('Refresh for user', user.name, 'triggered by profile', refreshProfile.name, 'at', time);
                 refreshUser(user);
                 lastRefresh[user.name] = new Date();
@@ -50,8 +54,13 @@ async function cycle() {
 async function loadConfig() {
 
     try {
-        const data = await fs.readFile('config.yaml', 'utf8');
-        return YAML.load(data);
+        const rawData = await fs.readFile('config.yaml', 'utf8');
+        const data = YAML.load(rawData);
+        if (data.version !== '1.1') {
+            console.error('Unsupported config version', data.version, 'expected 1.1');
+            return null;
+        }
+        return data;
     } catch (e) {
         console.error('Error reading config file:', e);
         return null;
@@ -82,53 +91,38 @@ async function getRefreshProfile(user) {
 
 async function refreshUser(user) {
 
-    const data = await fetchWebUntis(user.name, user.webuntis);
-
-    console.log(data);
-
-}
-
-async function fetchWebUntis(name, credentials) {
-
-    const now = new Date();
-    const days = 14;
-    const start = new Date(now.getFullYear(), now.getMonth(), now.getDate() - now.getDay() + 1, 0, 0, 0, 0);
-    const end = new Date(now.getFullYear(), now.getMonth(), now.getDate() - now.getDay() + days, 23, 59, 59, 999);
-
     try {
 
-        const untis = new WebUntis(credentials.school, credentials.username, credentials.password, credentials.server);
+        const data = await fetchWebUntis(user.name, user.webuntis, 5);
 
-        console.info(`[${name}]`, 'Logging in to WebUntis', credentials.server, 'with user', credentials.username, 'at', credentials.school);
-        await untis.login();
+        console.info(`[${user.name}]`, 'Generate lessons from timetable');
+        const lessons = await generateLessons(data);
 
-        console.info(`[${name}]`, 'Fetching timetable from', start.toLocaleString(), 'to', end.toLocaleString());
-        const timetable = await untis.getOwnTimetableForRange(start, end);
-
-        let news = {}
-        for (let i = 0; i < days; i++) {
-            const date = new Date(start.getFullYear(), start.getMonth(), start.getDate() - 14 + i, 0, 0, 0, 0);
-            news[date] = await untis.getNewsWidget(date);
+        const credentialsPath = path.join(process.cwd(), user.google.credentials);
+        const tokenPath = path.join(process.cwd(), user.google.token);
+        const api = await authorize(user.name, credentialsPath, tokenPath);
+        if (!api) {
+            console.warn(`[${user.name}]`, 'Failed upload to Google Calendar, skipping refresh');
+            return;
+        }
+        const calendarId = await getCalendar(user.name, api, user.google.calendar);
+        if (!calendarId) {
+            console.warn(`[${user.name}]`, 'Failed upload to Google Calendar, skipping refresh');
+            return;
         }
 
-        const holidays = await untis.getHolidays();
+        await uploadHolidays(user.name, api, calendarId, data.holidays);
+        await uploadNews(user.name, api, calendarId, data.news);
+        await uploadLessons(user.name, api, calendarId, lessons);
 
-        console.info(`[${name}]`, 'Logging out from WebUntis');
-        await untis.logout();
+        console.info(`[${user.name}]`, 'Refresh for user completed');
 
-        return {
-            timetable: timetable,
-            news: news,
-            holidays: holidays,
-        }
-    
     } catch (e) {
-        console.error(`[${name}]`, 'Error fetching WebUntis data:', e);
-        return null;
+        console.error(`[${user.name}]`, 'Unexpected error refreshing user:', e);
     }
 
 }
 
-console.info('Working with timezone', Intl.DateTimeFormat().resolvedOptions().timeZone);
-setInterval(cycle, 30 * 1000);
+console.info('Working with timezone', timeZone);
+setInterval(cycle, 60 * 1000);
 cycle()
