@@ -3,12 +3,6 @@ import { formatToLocalISO, formatToLocalISODate } from './utils.js';
 
 export async function fetchWebUntis(name, credentials, days) {
 
-    const now = new Date();
-    const start = new Date(now.getFullYear(), now.getMonth(), now.getDate() - (now.getDay() === 0 ? 6 : now.getDay() - 1), 0, 0, 0, 0);
-    const end = new Date(start.getFullYear(), start.getMonth(), start.getDate() + days - 1, 23, 59, 59, 999);
-    //const start = new Date(2024, 8, 25, 0,0,0,0);
-    //const end = new Date(2024, 8, 26, 0,0,0,0);
-
     try {
 
         const untis = new WebUntis(credentials.school, credentials.username, credentials.password, credentials.server);
@@ -16,10 +10,23 @@ export async function fetchWebUntis(name, credentials, days) {
         console.info(`[${name}]`, 'Logging in to WebUntis', credentials.server, 'with user', credentials.username, 'at', credentials.school);
         await untis.login();
 
+        const currentSchoolyear = await untis.getCurrentSchoolyear();
+
+        const now = new Date();
+        let start = new Date(now.getFullYear(), now.getMonth(), now.getDate() - (now.getDay() === 0 ? 6 : now.getDay() - 1), 0, 0, 0, 0);
+        let end = new Date(start.getFullYear(), start.getMonth(), start.getDate() + days - 1, 23, 59, 59, 999);
+        //start = new Date(2024, 8, 25, 0,0,0,0);
+        //end = new Date(2024, 8, 26, 0,0,0,0);
+
+        if (currentSchoolyear.endDate < end) {
+            end = new Date(currentSchoolyear.endDate);
+            end.setHours(23, 59, 59, 999);
+        }
+
         const data = {
             timetable: await fetchTimetable(name, untis, start, end),
             holidays: await fetchHolidays(name, untis),
-            news: await fetchNews(name, untis, start, end, days),
+            news: await fetchNews(name, untis, start, 14),
             homework: await fetchHomework(name, untis, start, end),
             exams: await fetchExams(name, untis, start, end),
             subjects: await fetchSubjects(name, untis),
@@ -141,7 +148,9 @@ async function fetchHolidays(name, untis) {
 
 }
 
-async function fetchNews(name, untis, start, end, days) {
+async function fetchNews(name, untis, start, days) {
+
+    const end = new Date(start.getFullYear(), start.getMonth(), start.getDate() + days - 1, 23, 59, 59, 999);
 
     console.info(`[${name}]`, 'Fetching news from', formatToLocalISODate(start), 'to', formatToLocalISODate(end));
     let data = [];
@@ -276,12 +285,12 @@ async function parseLessonDetails(lesson, data) {
     }
 
     return {
-        subjects: subjects,
-        teachers: teachers,
-        rooms: rooms,
-        originalSubjects: originalSubjects,
-        originalTeachers: originalTeachers,
-        originalRooms: originalRooms,
+        subjects: subjects.filter(item => item !== undefined),
+        teachers: teachers.filter(item => item !== undefined),
+        rooms: rooms.filter(item => item !== undefined),
+        originalSubjects: originalSubjects.filter(item => item !== undefined),
+        originalTeachers: originalTeachers.filter(item => item !== undefined),
+        originalRooms: originalRooms.filter(item => item !== undefined),
         classes: lesson.kl,
         cancelled: lesson.code === 'cancelled',
         irregular: irregular,

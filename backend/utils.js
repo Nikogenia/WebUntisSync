@@ -24,3 +24,42 @@ export function formatToLocalISOTime(date) {
 
     return `${hours}:${minutes}:${seconds}`;
 }
+
+export function TaskQueue(concurrency) {
+
+    let running = 0;
+    let resolveEmpty = null;
+    const tasks = [];
+
+    const queue = async (task) => {
+        tasks.push(task);
+        if (running >= concurrency) return;
+
+        ++running;
+        while (tasks.length) {
+            try {
+                await tasks.shift()();
+            } catch(err) {
+                console.error("Error while executing task in queue:", err);
+            }
+        }
+        --running;
+
+        if (running === 0 && tasks.length === 0 && resolveEmpty) {
+            resolveEmpty();
+            resolveEmpty = null;
+        }
+    }
+
+    queue.waitUntilEmpty = () => {
+        if (running === 0 && tasks.length === 0) {
+            return Promise.resolve();
+        }
+        return new Promise((resolve) => {
+            resolveEmpty = resolve;
+        });
+    };
+
+    return queue;
+
+}

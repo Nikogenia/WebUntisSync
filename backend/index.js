@@ -2,6 +2,7 @@ import fs from 'fs/promises';
 import YAML from 'js-yaml';
 import path from 'path';
 import process from 'process';
+import { TaskQueue } from './utils.js';
 import { fetchWebUntis, generateLessons } from './untis.js';
 import { authorize, getCalendar, uploadHolidays, uploadNews, uploadLessons } from './google.js';
 
@@ -36,11 +37,19 @@ async function cycle() {
         const isWeekend = now.getDay() === 0 || now.getDay() === 6;
         const refreshTimes = isWeekend ? refreshProfile.weekend : refreshProfile.weekday;
 
+        const refreshTime = new Date();
+        refreshTime.setHours(0, 0, 0, 0);
+        if (now >= refreshTime && (!lastRefresh[user.name] || (lastRefresh[user.name] < refreshTime && now - lastRefresh[user.name] >= 10 * 60 * 1000))) {
+            console.info('Full refresh for user', user.name, 'triggered by midnight');
+            refreshUser(user, 365);
+            lastRefresh[user.name] = new Date();
+        }
+
         for (const time of refreshTimes) {
             const [hours, minutes] = time.split(':').map(Number);
             const refreshTime = new Date();
             refreshTime.setHours(hours, minutes, 0, 0);
-            if (now >= refreshTime && (!lastRefresh[user.name] || (lastRefresh[user.name] < refreshTime && now - lastRefresh[user.name] >= 5 * 60 * 1000))) {
+            if (now >= refreshTime && (!lastRefresh[user.name] || (lastRefresh[user.name] < refreshTime && now - lastRefresh[user.name] >= 10 * 60 * 1000))) {
                 console.info('Refresh for user', user.name, 'triggered by profile', refreshProfile.name, 'at', time);
                 refreshUser(user);
                 lastRefresh[user.name] = new Date();
@@ -89,11 +98,11 @@ async function getRefreshProfile(user) {
     
 }
 
-async function refreshUser(user) {
+async function refreshUser(user, days) {
 
     try {
 
-        const data = await fetchWebUntis(user.name, user.webuntis, 5);
+        const data = await fetchWebUntis(user.name, user.webuntis, days || 21);
 
         console.info(`[${user.name}]`, 'Generate lessons from timetable');
         const lessons = await generateLessons(data);
@@ -111,9 +120,11 @@ async function refreshUser(user) {
             return;
         }
 
-        await uploadHolidays(user.name, api, calendarId, data.holidays);
-        await uploadNews(user.name, api, calendarId, data.news);
-        await uploadLessons(user.name, api, calendarId, lessons);
+        const queue = new TaskQueue(5);
+        await uploadHolidays(user.name, api, calendarId, data.holidays, queue);
+        await uploadNews(user.name, api, calendarId, data.news, queue);
+        await uploadLessons(user.name, api, calendarId, lessons, queue);
+        await queue.waitUntilEmpty();
 
         console.info(`[${user.name}]`, 'Refresh for user completed');
 

@@ -168,12 +168,13 @@ async function uploadEvent(name, api, calendarId, eventId, properties, timeOut) 
             eventId: eventId
         })
 
+        let description = res.data.description;
         if (!res.data.extendedProperties || !res.data.extendedProperties.private || !res.data.extendedProperties.private.untisversion) {
             console.warn(`[${name}]`, 'Event', eventId, 'has unspecified version, overwriting to version 1 with potential data loss');
             update = true;
         }
         else if (res.data.extendedProperties.private.untisversion === '1') {
-            res.data.description = res.data.description.substring(0, res.data.description.length - 52);
+            description = description.substring(0, description.length - 52);
         }
         else {
             console.warn(`[${name}]`, 'Event', eventId, 'has unknown version', res.data.extendedProperties.private.untisversion, ', overwriting to version 1 with potential data loss');
@@ -190,13 +191,16 @@ async function uploadEvent(name, api, calendarId, eventId, properties, timeOut) 
             }
         };
         
-        const same = res.data.summary === event.summary &&
-            res.data.description === event.description &&
-            res.data.colorId === event.colorId &&
-            res.data.transparency === event.transparency &&
-            res.data.location === event.location &&
-            new Date(res.data.start.dateTime).getTime() === new Date(event.start.dateTime).getTime() &&
-            new Date(res.data.end.dateTime).getTime() === new Date(event.end.dateTime).getTime();
+        const equal = (x, y) => x === y || (Number.isNaN(x) && Number.isNaN(y)) || (x === undefined && y === '') || (x === '' && y === undefined);
+        const same = equal(res.data.summary, event.summary) &&
+            equal(description, event.description) &&
+            equal(res.data.location, event.location) &&
+            equal(res.data.transparency, event.transparency) &&
+            equal(res.data.colorId, event.colorId) &&
+            equal(new Date(res.data.start.dateTime).getTime(), new Date(event.start.dateTime).getTime()) &&
+            equal(new Date(res.data.end.dateTime).getTime(), new Date(event.end.dateTime).getTime()) &&
+            equal(new Date(res.data.start.date).getTime(), new Date(event.start.date).getTime()) &&
+            equal(new Date(res.data.end.date).getTime(), new Date(event.end.date).getTime());
 
         if (same && !update) {
             console.info(`[${name}]`, 'Event', eventId, 'already exists');
@@ -211,12 +215,12 @@ async function uploadEvent(name, api, calendarId, eventId, properties, timeOut) 
             return;
         }
         if (err.code === 403 || err.code === 429) {
-            if (timeOut > 60) {
+            if (timeOut > 15 * 60) {
                 console.error(`[${name}]`, 'To many retries for uploading event:', err);
                 return;
             }
             await new Promise(resolve => setTimeout(resolve, timeOut * 1000));
-            await uploadEvent(name, api, calendarId, eventId, properties, timeOut * 2)
+            await uploadEvent(name, api, calendarId, eventId, properties, timeOut * 1.5)
             return;
         }
         console.error(`[${name}]`, 'Error uploading event:', err);
@@ -241,12 +245,12 @@ async function updateEvent(name, api, calendarId, eventId, properties, timeOut) 
 
     } catch (err) {
         if (err.code === 403 || err.code === 429) {
-            if (timeOut > 60) {
+            if (timeOut > 15 * 60) {
                 console.error(`[${name}]`, 'To many retries for updating event:', err);
                 return;
             }
             await new Promise(resolve => setTimeout(resolve, timeOut * 1000));
-            await updateEvent(name, api, calendarId, eventId, properties, timeOut * 2)
+            await updateEvent(name, api, calendarId, eventId, properties, timeOut * 1.5)
             return;
         }
         console.error(`[${name}]`, 'Error updating event:', err);
@@ -263,7 +267,12 @@ async function createEvent(name, api, calendarId, eventId, properties, timeOut) 
             requestBody: {
                 ...properties,
                 description: properties.description + `\n\n<i>Synced with WebUntis at ${formatToLocalISO(new Date())}</i>`,
-                id: eventId
+                id: eventId,
+                extendedProperties: {
+                    private: {
+                        untisversion: '1'
+                    }
+                }
             }
         });
 
@@ -271,12 +280,12 @@ async function createEvent(name, api, calendarId, eventId, properties, timeOut) 
 
     } catch (err) {
         if (err.code === 403 || err.code === 429) {
-            if (timeOut > 60) {
+            if (timeOut > 15 * 60) {
                 console.error(`[${name}]`, 'To many retries for creating event:', err);
                 return;
             }
             await new Promise(resolve => setTimeout(resolve, timeOut * 1000));
-            await createEvent(name, api, calendarId, eventId, properties, timeOut * 2)
+            await createEvent(name, api, calendarId, eventId, properties, timeOut * 1.5)
             return;
         }
         console.error(`[${name}]`, 'Error creating event:', err);
@@ -284,8 +293,9 @@ async function createEvent(name, api, calendarId, eventId, properties, timeOut) 
 
 }
 
-export async function uploadHolidays(name, api, calendarId, holidays) {
+export async function uploadHolidays(name, api, calendarId, holidays, queue) {
 
+    const tasks = [];
     for (const holiday of holidays) {
         const endDate = new Date(holiday.end);
         endDate.setDate(endDate.getDate() + 1);
@@ -301,16 +311,16 @@ export async function uploadHolidays(name, api, calendarId, holidays) {
             transparency: 'transparent',
             colorId: '4'
         };
-        console.info(`[${name}]`, 'Uploading holiday', event.summary, 'from', formatToLocalISODate(holiday.start), 'to', formatToLocalISODate(holiday.end));
-        await uploadEvent(name, api, calendarId, `untisholi${holiday.id}`, event, 1);
+        console.info(`[${name}]`, `Uploading holiday (${holiday.id})`, event.summary, 'from', formatToLocalISODate(holiday.start), 'to', formatToLocalISODate(holiday.end));
+        queue(async () => uploadEvent(name, api, calendarId, `untisholi${holiday.id}`, event, 1));
     }
-
-    console.info(`[${name}]`, 'Uploaded holidays');
+    return tasks;
 
 }
 
-export async function uploadNews(name, api, calendarId, news) {
+export async function uploadNews(name, api, calendarId, news, queue) {
 
+    const tasks = [];
     for (const day of news) {
         for (const message of day.messages) {
             let title = message.subject;
@@ -329,30 +339,35 @@ export async function uploadNews(name, api, calendarId, news) {
                 transparency: 'transparent',
                 colorId: '2'
             };
-            console.info(`[${name}]`, 'Uploading news', event.summary, 'on', formatToLocalISODate(day.date));
-            await uploadEvent(name, api, calendarId, `untismotd${day.date.getMonth() + 1}m${day.date.getDate()}d${message.id}`, event, 1);
+            console.info(`[${name}]`, `Uploading news (${message.id})`, event.summary, 'on', formatToLocalISODate(day.date));
+            queue(async () => uploadEvent(name, api, calendarId, `untismotd${day.date.getMonth() + 1}m${day.date.getDate()}d${message.id}`, event, 2));
         }
     }
-
-    console.info(`[${name}]`, 'Uploaded news');
+    return tasks;
 
 }
 
-export async function uploadLessons(name, api, calendarId, lessons) {
+export async function uploadLessons(name, api, calendarId, lessons, queue) {
 
+    const tasks = [];
     for (const lesson of lessons) {
-        const event = {
-            start: {
-                dateTime: lesson.start.toISOString()
-            },
-            end: {
-                dateTime: lesson.end.toISOString()
-            },
-            ...await generateFields(lesson)
-        };
-        console.info(`[${name}]`, 'Uploading lesson', event.summary, 'from', formatToLocalISO(lesson.start), 'to', formatToLocalISO(lesson.end));
-        await uploadEvent(name, api, calendarId, `untisless${lesson.id}`, event, 1);
+        try {
+            const event = {
+                start: {
+                    dateTime: lesson.start.toISOString()
+                },
+                end: {
+                    dateTime: lesson.end.toISOString()
+                },
+                ...await generateFields(lesson)
+            };
+            console.info(`[${name}]`, `Uploading lesson (${lesson.id})`, event.summary, 'from', formatToLocalISO(lesson.start), 'to', formatToLocalISO(lesson.end));
+            queue(async () => uploadEvent(name, api, calendarId, `untisless${lesson.id}`, event, 1));
+        } catch (err) {
+            console.error(`[${name}]`, 'Unexpected error uploading lesson:', err);
+        }
     }
+    return tasks;
 
 }
 
@@ -415,43 +430,52 @@ async function generateFields(lesson) {
     }
 
     title += lesson.subjects.map(subject => subject.name).join(', ');
-    if (lesson.originalSubjects.length > 0) {
-        title += ` <${lesson.originalSubjects.map(subject => subject.name).join(', ')}>`;
-    }
-    title += ' | ';
-    title += lesson.teachers.map(teacher => teacher.name).join(', ');
-    if (lesson.originalTeachers.length > 0) {
-        title += ` <${lesson.originalTeachers.map(teacher => teacher.name).join(', ')}>`;
-    }
-    title += ' | ';
-    title += lesson.classes.map(klass => klass.name).join(', ');
-
     description += `<b>${lesson.subjects.map(subject => subject.longName).join(', ')}`;
     if (lesson.originalSubjects.length > 0) {
-        description += ` &lt;${lesson.originalSubjects.map(subject => subject.longName).join(', ')}&gt;`;
+        if (lesson.subjects.length > 0) {
+            title += ' ';
+            description += ' ';
+        }
+        title += `<${lesson.originalSubjects.map(subject => subject.name).join(', ')}>`;
+        description += `&lt;${lesson.originalSubjects.map(subject => subject.longName).join(', ')}&gt;`;
     }
+
+    title += ' | ';
     description += '</b>\n';
+    title += lesson.teachers.map(teacher => teacher.name).join(', ');
     const teacherName = (teacher) => teacher.foreName ? `${teacher.foreName} ${teacher.longName}` : teacher.longName;
     description += `${lesson.teachers.map(teacherName).join(', ')}`;
     if (lesson.originalTeachers.length > 0) {
-        description += ` &lt;${lesson.originalTeachers.map(teacherName).join(', ')}&gt;`;
-    }
-    description += '\n';
-    description += `${lesson.classes.map(klass => klass.longname).join(', ')}\n`;
-    description += `${lesson.rooms.map(room => room.longName).join(', ')}`;
-    if (lesson.originalRooms.length > 0) {
-        description += ` &lt;${lesson.originalRooms.map(room => room.longName).join(', ')}&gt;`;
+        if (lesson.teachers.length > 0) {
+            title += ' ';
+            description += ' ';
+        }
+        title += `<${lesson.originalTeachers.map(teacher => teacher.name).join(', ')}>`;
+        description += `&lt;${lesson.originalTeachers.map(teacherName).join(', ')}&gt;`;
     }
 
-    let location = lesson.rooms.map(room => room.name).join(', ');
+    description += '\n';
+    description += `${lesson.classes.map(klass => klass.longname).join(', ')}`;
+
+    if (lesson.rooms.length > 0 || lesson.originalRooms.length > 0) {
+        title += ' | ';
+        description += '\n';
+    }
+    title += lesson.rooms.map(room => room.name).join(', ');
+    description += `${lesson.rooms.map(room => room.longName).join(', ')}`;
     if (lesson.originalRooms.length > 0) {
-        location += ` <${lesson.originalRooms.map(room => room.name).join(', ')}>`;
+        if (lesson.rooms.length > 0) {
+            title += ' ';
+            description += ' ';
+        }
+        title += `<${lesson.originalRooms.map(room => room.name).join(', ')}>`;
+        description += `&lt;${lesson.originalRooms.map(room => room.longName).join(', ')}&gt;`;
     }
 
     const fields = {
         summary: title,
         description: description,
-        location: location
+        location: ''
     }
 
     if (color) {
