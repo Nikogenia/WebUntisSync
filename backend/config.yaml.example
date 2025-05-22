@@ -4,38 +4,29 @@
 # There is no need to restart the service after changing this file.
 # Keep in mind that a misconfiguration can lead to an outage or crash of the service.
 
-version: "1.1"
+version: "1.2"
 
-# User profiles
-users:
+# API configuration
+api:
+  port: 6482
+  token_secret: pleasechangeme  # PLEASE CHANGE THIS! Random value can be generated with crypto.
+  https: false  # Set to true to increase security when HTTPS is used.
 
-  # TEMPLATE
-  - name: "template"
+# Secret encryption key
+encryption_key: pleasechangemetoo  # PLEASE CHANGE THIS! Random value can be generated with crypto.
 
-    # WebUntis credentials
-    webuntis:
-      server: "example.webuntis.com"
-      username: "username"
-      password: "password"
-      school: "schoolname"
-
-    # Google Calendar credentials
-    google:
-      credentials: "google/credentials-template.json"
-      token: "google/token-template.json"
-      calendar: "google/calendar-template.txt"
-
-    # Refresh profile
-    refresh: "default"
+# Google OAuth2 configuration
+google:
+  client_id: pleasechangeme  # Retrieve from Google Cloud Console
+  client_secret: pleasechangeme  # Retrieve from Google Cloud Console
+  redirect_uri: http://localhost:3000/api/oauth2/google  # Adjust for used API URL
 
 # Refresh timestamp profiles
 refresh:
-
-  # Default timestamp profile for most users
   - name: "default"
-
-    # Time of day to refresh the data on monday to friday
+    label: "Bodensee-Gymnasium Lindau"
     weekday:
+      - "04:00"
       - "05:00"
       - "06:00"
       - "06:30"
@@ -58,13 +49,13 @@ refresh:
       - "21:00"
       - "22:00"
       - "23:00"
-
-    # Time of day to refresh the data on weekend
     weekend:
       - "06:00"
       - "09:00"
       - "12:00"
       - "15:00"
+      - "16:00"
+      - "17:00"
       - "18:00"
       - "19:00"
       - "20:00"

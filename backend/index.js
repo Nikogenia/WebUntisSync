@@ -1,34 +1,17 @@
-import fs from 'fs/promises';
-import YAML from 'js-yaml';
 import path from 'path';
 import process from 'process';
 import { TaskQueue } from './utils.js';
+import { app as api } from './api.js';
+import { loadConfig, saveUserFile, api as apiConfig, users } from './config.js';
 import { fetchWebUntis, generateLessons } from './untis.js';
 import { authorize, getCalendar, uploadHolidays, uploadNews, uploadLessons } from './google.js';
 
-let config;
 let lastRefresh = {};
 const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
 async function cycle() {
     
-    const newConfig = await loadConfig();
-    if (!newConfig && !config) {
-        console.error('Unable to proceed without configuration, exiting');
-        process.exit(1);
-    }
-    if (!newConfig) {
-        console.warn('Unable to load new configuration, using old one');
-    }
-    else if (JSON.stringify(config) !== JSON.stringify(newConfig)) {
-        console.info('Configuration changed, triggering refresh for all users');
-        config = newConfig;
-        for (const user of config.users) {
-            refreshUser(user);
-            lastRefresh[user.name] = new Date();
-        }
-        return;
-    }
+    return;
 
     for (const user of config.users) {
 
@@ -58,44 +41,6 @@ async function cycle() {
         
     }
 
-}
-
-async function loadConfig() {
-
-    try {
-        const rawData = await fs.readFile('config.yaml', 'utf8');
-        const data = YAML.load(rawData);
-        if (data.version !== '1.1') {
-            console.error('Unsupported config version', data.version, 'expected 1.1');
-            return null;
-        }
-        return data;
-    } catch (e) {
-        console.error('Error reading config file:', e);
-        return null;
-    }
-
-}
-
-async function getRefreshProfile(user) {
-
-    let defaultProfile = {
-        name: 'default',
-        weekday: [],
-        weekend: []
-    };
-
-    for (const refreshProfile of config.refresh) {
-        if (refreshProfile.name == user.refresh) {
-            return refreshProfile;
-        }
-        if (refreshProfile.name == 'default') {
-            defaultProfile = refreshProfile;
-        }
-    }
-
-    return defaultProfile;
-    
 }
 
 async function refreshUser(user, days) {
@@ -134,6 +79,13 @@ async function refreshUser(user, days) {
 
 }
 
+await loadConfig();
+console.info('Loaded', Object.keys(users).length, 'users');
+
 console.info('Working with timezone', timeZone);
 setInterval(cycle, 60 * 1000);
 cycle()
+
+api.listen(apiConfig.port, () => {
+    console.info('API listening on port', apiConfig.port);
+});
