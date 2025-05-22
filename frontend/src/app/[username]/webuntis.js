@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { formatDate, formatTime } from '@/lib/utils';
 import { toast } from "sonner";
 
-export default function WebUntis({ user, config, fetchData }) {
+export default function WebUntis({ user, config, fetchData, router }) {
 
   const [server, setServer] = useState(config.webuntis.server || "");
   const [school, setSchool] = useState(config.webuntis.school || "");
@@ -183,7 +183,7 @@ export default function WebUntis({ user, config, fetchData }) {
     <TooltipProvider>
       <Card>
         <CardHeader>
-          <CardTitle>WebUntis Configuration</CardTitle>
+          <CardTitle>WebUntis</CardTitle>
           <CardDescription>Configure your WebUntis account settings</CardDescription>
         </CardHeader>
         <CardContent>

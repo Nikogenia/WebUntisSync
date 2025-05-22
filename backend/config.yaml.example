@@ -19,7 +19,7 @@ encryption_key: pleasechangemetoo  # PLEASE CHANGE THIS! Random value can be gen
 google:
   client_id: pleasechangeme  # Retrieve from Google Cloud Console
   client_secret: pleasechangeme  # Retrieve from Google Cloud Console
-  redirect_uri: http://localhost:3000/api/oauth2/google  # Adjust for used API URL
+  redirect_uri: http://localhost:3000/api/oauth2/google/callback  # Adjust for used API URL
 
 # Refresh timestamp profiles
 refresh:

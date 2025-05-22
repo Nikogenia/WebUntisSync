@@ -4,6 +4,7 @@ import bcrypt from 'bcrypt';
 import cookieParser from 'cookie-parser';
 import { api as apiConfig, users, saveUserFile, encryptionKey } from './config.js';
 import { encrypt, decrypt } from './utils.js';
+import { generateAuthUrl, processAuth, deleteAuth } from './google.js';
 
 export const app = express();
 let tokens = [];
@@ -99,7 +100,7 @@ app.post('/api/auth', async (req, res) => {
         res.cookie('token', token, {
             httpOnly: true,
             secure: apiConfig.https,
-            sameSite: 'strict',
+            sameSite: 'lax',
             maxAge: 3 * 60 * 60 * 1000,
         });
 
@@ -125,10 +126,36 @@ app.delete('/api/auth', authenticate, (req, res) => {
     res.clearCookie('token', {
         httpOnly: true,
         secure: apiConfig.https,
-        sameSite: 'strict',
+        sameSite: 'lax',
     });
 
     return res.sendStatus(204);
+
+});
+
+app.get('/api/oauth2/google', authenticate, refresh, (req, res) => {
+
+    const authUrl = generateAuthUrl();
+    res.redirect(authUrl);
+
+});
+
+app.get('/api/oauth2/google/callback', authenticate, refresh, async (req, res) => {
+    
+    const code = req.query?.code;
+    const success = await processAuth(req.username, code);
+    if (!success) res.status(500).send(
+        'Something went wrong while processing Google OAuth!<br/>' +
+        'Please contact the admin and try again.<br/>' +
+        `<a href="/${req.username}">Back to dashboard</a>`);
+    res.redirect(`/${req.username}`);
+
+});
+
+app.delete('/api/oauth2/google', authenticate, refresh, async (req, res) => {
+
+    await deleteAuth(req.username);
+    res.sendStatus(204);
 
 });
 
@@ -267,7 +294,7 @@ function refresh(req, res, next) {
             res.cookie('token', newToken, {
                 httpOnly: true,
                 secure: apiConfig.https,
-                sameSite: 'strict',
+                sameSite: 'lax',
                 maxAge: 3 * 60 * 60 * 1000,
             });
             req.token = newToken;

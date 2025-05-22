@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import WebUntis from "./webuntis";
 import Logs from "./logs";
 import { toast } from 'sonner';
+import Google from './google';
 
 export default function Dashboard({ params }) {
 
@@ -121,8 +122,9 @@ export default function Dashboard({ params }) {
         </div>
       </header>
       <div className="flex flex-1 flex-col lg:flex-row gap-6 p-4 md:p-6">
-        <div className="w-full lg:w-1/2">
-          <WebUntis user={username} config={config} fetchData={fetchData} />
+        <div className="w-full lg:w-1/2 space-y-6">
+          <WebUntis user={username} config={config} fetchData={fetchData} router={router} />
+          <Google user={username} config={config} fetchData={fetchData} router={router} />
         </div>
         <div className="w-full lg:w-1/2">
           <Logs />

@@ -4,7 +4,7 @@ import { TaskQueue } from './utils.js';
 import { app as api } from './api.js';
 import { loadConfig, saveUserFile, api as apiConfig, users } from './config.js';
 import { fetchWebUntis, generateLessons } from './untis.js';
-import { authorize, getCalendar, uploadHolidays, uploadNews, uploadLessons } from './google.js';
+import { loadApi, getCalendar, uploadHolidays, uploadNews, uploadLessons } from './google.js';
 
 let lastRefresh = {};
 const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -54,7 +54,7 @@ async function refreshUser(user, days) {
 
         const credentialsPath = path.join(process.cwd(), user.google.credentials);
         const tokenPath = path.join(process.cwd(), user.google.token);
-        const api = await authorize(user.name, credentialsPath, tokenPath);
+        const api = await loadApi(user.name);
         if (!api) {
             console.warn(`[${user.name}]`, 'Failed upload to Google Calendar, skipping refresh');
             return;

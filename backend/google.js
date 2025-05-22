@@ -1,6 +1,7 @@
 import fs from 'fs/promises';
-import { authenticate } from '@google-cloud/local-auth';
 import { google } from 'googleapis';
+import { google as googleConfig } from './config.js';
+import { users, saveUserFile } from './config.js';
 import { formatToLocalISODate, formatToLocalISO } from './utils.js';
 
 /*
@@ -22,79 +23,126 @@ Google Calendar event color palette
 
 const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
-// If modifying these scopes, delete token.json.
 const SCOPES = ['https://www.googleapis.com/auth/calendar.app.created'];
 
-/**
- * Reads previously authorized credentials from the save file.
- *
- * @return {Promise<OAuth2Client|null>}
- */
-async function loadSavedCredentialsIfExist(tokenPath) {
+export function generateAuthUrl() {
+
+    const oauth2Client = new google.auth.OAuth2(
+        googleConfig.client_id,
+        googleConfig.client_secret,
+        googleConfig.redirect_uri
+    );
+
+    return oauth2Client.generateAuthUrl({
+        access_type: 'offline',
+        scope: SCOPES,
+        prompt: 'consent',
+        include_granted_scopes: true
+    });
+
+}
+
+export async function processAuth(username, code) {
 
     try {
-        const content = await fs.readFile(tokenPath);
-        const credentials = JSON.parse(content);
-        return google.auth.fromJSON(credentials);
-    } catch (err) {
-        return null;
+
+        const oauth2Client = new google.auth.OAuth2(
+            googleConfig.client_id,
+            googleConfig.client_secret,
+            googleConfig.redirect_uri
+        );
+
+        const { tokens } = await oauth2Client.getToken(code);
+
+        const user = users[username];
+        if (!user) return false;
+
+        console.info('[oauth]', 'Saved Google OAuth token for', username);
+
+        user.google_oauth = tokens.refresh_token;
+        user.google.oauth_configured = new Date();
+
+        await saveUserFile(username, user);
+
+        return true;
+
+    }
+    catch (err) {
+        console.error('[oauth]', `Error processing Google OAuth for ${username}:`, err);
+        return false;
     }
 
 }
 
-/**
- * Serializes credentials to a file compatible with GoogleAuth.fromJSON.
- *
- * @param {OAuth2Client} client
- * @return {Promise<void>}
- */
-async function saveCredentials(client, credentialsPath, tokenPath) {
+export async function deleteAuth(username) {
 
-    const content = await fs.readFile(credentialsPath);
-    const keys = JSON.parse(content);
-    const key = keys.installed || keys.web;
-    const payload = JSON.stringify({
-        type: 'authorized_user',
-        client_id: key.client_id,
-        client_secret: key.client_secret,
-        refresh_token: client.credentials.refresh_token,
-    });
-
-    await fs.writeFile(tokenPath, payload);
-
-}
-
-/**
- * Load or request or authorization to call APIs.
- *
- */
-export async function authorize(name, credentialsPath, tokenPath) {
+    const user = users[username];
+    if (!user) return;
 
     try {
 
-        let client = await loadSavedCredentialsIfExist(tokenPath);
-        if (client) {
-            console.info(`[${name}]`, 'Loaded saved credentials for Google from', tokenPath);
-            console.info(`[${name}]`, 'Initialize Google Calendar API');
-            const api = google.calendar({version: 'v3', auth: client});
-            return api;
+        const oauth2Client = new google.auth.OAuth2(
+            googleConfig.client_id,
+            googleConfig.client_secret,
+            googleConfig.redirect_uri
+        );
+
+        await oauth2Client.revokeToken(user.google_oauth);
+
+    }
+    catch (err) {
+        console.error('[oauth]', 'Error revoking token:', err);
+    }
+
+    console.info('[oauth]', 'Deleted Google OAuth token for', username);
+
+    user.google_oauth = '';
+    user.google.oauth_configured = '';
+
+    await saveUserFile(username, user);
+
+}
+
+export async function loadApi(username) {
+
+    try {
+
+        const user = users[username];
+        if (!user) return null;
+
+        if (!user.google_oauth) {
+            console.error('[oauth]', 'No Google OAuth token found for', username);
+            if (user.google.oauth_configured) {
+                user.google.oauth_configured = '';
+                await saveUserFile(username, user);
+            }
+            return null;
         }
-        console.info(`[${name}]`, 'No saved credentials for Google found, requesting new ones from', credentialsPath);
-        client = await authenticate({
-            scopes: SCOPES,
-            keyfilePath: credentialsPath,
+
+        const oauth2Client = new google.auth.OAuth2(
+            googleConfig.client_id,
+            googleConfig.client_secret,
+            googleConfig.redirect_uri
+        );
+
+        oauth2Client.setCredentials({
+            refresh_token: user.google_oauth
         });
-        if (client.credentials) {
-            await saveCredentials(client, credentialsPath, tokenPath);
-            console.info(`[${name}]`, 'Saved credentials for Google to', tokenPath);
+
+        const response = await oauth2Client.getAccessToken();
+        if (!response || !response.token) {
+            console.error('[oauth]', 'Google OAuth token for', username, 'not valid');
+            return null;
         }
-        console.info(`[${name}]`, 'Initialize Google Calendar API');
-        const api = google.calendar({version: 'v3', auth: client});
+
+        console.info('[oauth]', 'Loaded Google OAuth token for', username);
+
+        const api = google.calendar({version: 'v3', auth: oauth2Client});
+
         return api;
 
     } catch (err) {
-        console.error(`[${name}]`, 'Error authorizing Google Calendar API:', err);
-        return null;
+        console.error('[oauth]', `Error loading Google OAuth for ${username}:`, err);
     }
 
 }
