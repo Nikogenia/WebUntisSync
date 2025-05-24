@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Info, Calendar, Clock, Eye, EyeOff } from "lucide-react";
+import { Info, Calendar, Clock, Eye, EyeOff, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -16,6 +16,15 @@ export default function WebUntis({ user, config, fetchData, router }) {
   const [server, setServer] = useState(config.webuntis.server || "");
   const [school, setSchool] = useState(config.webuntis.school || "");
   const [username, setUsername] = useState(config.webuntis.username || "");
+
+  const unsavedChanges = () => {
+    return JSON.stringify(config.webuntis) !== JSON.stringify({
+      ...config.webuntis,
+      server,
+      school,
+      username
+    });
+  }
 
   const handleDeletePassword = async (event) => {
     event.preventDefault();
@@ -87,20 +96,19 @@ export default function WebUntis({ user, config, fetchData, router }) {
 
   const handleUpdateConfig = async (event) => {
     event.preventDefault();
-    const data = {
-      ...config.webuntis,
-      server,
-      school,
-      username
-    }
-    if (JSON.stringify(config.webuntis) === JSON.stringify(data) || !server || !school || !username) {
+    if (!unsavedChanges() || !server || !school || !username) {
       return;
     }
     try {
       console.log("Update WebUntis config ...")
       const response = await fetch(`/api/config`, {
         method: 'PUT',
-        body: JSON.stringify({ webuntis: data }),
+        body: JSON.stringify({ webuntis: {
+          ...config.webuntis,
+          server,
+          school,
+          username
+        }}),
         headers: {
           'Content-Type': 'application/json',
         }
@@ -291,10 +299,13 @@ export default function WebUntis({ user, config, fetchData, router }) {
               </div>
             )}
             </div>
-            <div className="mt-8">
-              <Button type="submit" className="cursor-pointer" disabled={JSON.stringify(config.webuntis) === JSON.stringify({ ...config.webuntis, server, school, username }) || !server || !school || !username}>
+            <div className="flex items-center space-x-3 mt-8">
+              <Button type="submit" className="cursor-pointer" disabled={!unsavedChanges() || !server || !school || !username}>
                 Save changes
               </Button>
+              {(unsavedChanges() && server && school && username) && (
+                <AlertCircle className="h-4 w-4 text-red-500" />
+              )}
             </div>
           </div>
           </form>

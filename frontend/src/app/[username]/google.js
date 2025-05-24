@@ -1,19 +1,43 @@
 "use client";
 
 import { useState } from "react";
-import { Info, Calendar, Clock } from "lucide-react";
+import { Info, Calendar, Clock, Plus, Car, Check, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { formatDate, formatTime } from '@/lib/utils';
 import { toast } from "sonner";
+import { Switch } from "@/components/ui/switch";
+import React from "react";
 
 export default function Google({ user, config, fetchData, router }) {
 
   const [calendarId, setCalendarId] = useState(config.google.calendarId || "");
+  const [colorExam, setColorExam] = useState(config.google.examColor || "6");
+  const [colorUpdated, setColorUpdated] = useState(config.google.updatedColor || "2");
+  const [colorCancelled, setColorCancelled] = useState(config.google.cancelledColor || "10");
+  const [colorHomework, setColorHomework] = useState(config.google.homeworkColor || "5");
+  const [colorMessageOfTheDay, setColorMessageOfTheDay] = useState(config.google.messageOfTheDayColor || "2");
+  const [colorHoliday, setColorHoliday] = useState(config.google.holidayColor || "4");
+  const [darkColor, setDarkColor] = useState(true);
+
+  const unsavedChanges = () => {
+    return JSON.stringify(config.google) !== JSON.stringify({
+      ...config.google,
+      calendarId,
+      examColor: colorExam,
+      updatedColor: colorUpdated,
+      cancelledColor: colorCancelled,
+      homeworkColor: colorHomework,
+      messageOfTheDayColor: colorMessageOfTheDay,
+      holidayColor: colorHoliday,
+    });
+  }
 
   const handleRevokeAccess = async (event) => {
     event.preventDefault();
@@ -47,17 +71,17 @@ export default function Google({ user, config, fetchData, router }) {
 
   }
 
-  const handleConfigurePassword = async (event, password) => {
+  const handleCreateCalendar = async (event, calendarTitle, calendarDescription) => {
     event.preventDefault();
-    if (!password) {
-      toast.error('Please enter your WebUntis password!');
+    if (!calendarTitle) {
+      toast.error("Please enter a calendar title!");
       return;
     }
     try {
-      console.log("Configure password ...")
-      const response = await fetch(`/api/webuntis/password`, {
-        method: 'PUT',
-        body: JSON.stringify({ password }),
+      console.log("Create calendar ...")
+      const response = await fetch(`/api/google/calendar`, {
+        method: 'POST',
+        body: JSON.stringify({ title: calendarTitle, description: calendarDescription }),
         headers: {
           'Content-Type': 'application/json',
         }
@@ -71,16 +95,231 @@ export default function Google({ user, config, fetchData, router }) {
         return;
       }
       if (response.status === 200) {
-        toast.success("WebUntis password configured successfully!");
+        toast.success(`Calendar "${calendarTitle}" created successfully!`);
         fetchData();
         return;
       }
-      toast.error('Failed to configure WebUntis password!');
-      console.error('Failed to configure WebUntis password:', response.status);
+      toast.error('Failed to create calendar!');
+      console.error('Failed to create calendar:', response.status);
     } catch (err) {
-      toast.error('Failed to configure WebUntis password!');
-      console.error('Failed to configure WebUntis password:', err);
+      toast.error('Failed to create calendar!');
+      console.error('Failed to create calendar:', err);
     }
+  }
+
+  const handleUpdateConfig = async (event) => {
+    event.preventDefault();
+    if (!unsavedChanges()) {
+      return;
+    }
+    try {
+      console.log("Update Google config ...")
+      const response = await fetch(`/api/config`, {
+        method: 'PUT',
+        body: JSON.stringify({ google: {
+          ...config.google,
+          calendarId,
+          examColor: colorExam,
+          updatedColor: colorUpdated,
+          cancelledColor: colorCancelled,
+          homeworkColor: colorHomework,
+          messageOfTheDayColor: colorMessageOfTheDay,
+          holidayColor: colorHoliday,
+        }}),
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      });
+      if (response.status === 400) {
+        router.push('/');
+        return;
+      }
+      if (response.status === 401 || response.status === 403) {
+        router.push(`/${user}/login`);
+        return;
+      }
+      if (response.status === 200) {
+        toast.success("Google configuration updated successfully!");
+        fetchData();
+        return;
+      }
+      toast.error('Failed to update Google configuration!');
+      console.error('Failed to update Google configuration:', response.status);
+    } catch (err) {
+      toast.error('Failed to update Google configuration!');
+      console.error('Failed to update Google configuration:', err);
+    }
+  }
+
+  const CalendarDialog = () => {
+    const [calendarTitle, setCalendarTitle] = useState("School");
+    const [calendarDescription, setCalendarDescription] = useState("WebUntis Sync Calendar");
+    return (
+      <Dialog>
+        <DialogTrigger asChild>
+          <Button variant="outline" className="cursor-pointer">
+            <Plus className="h-4 w-4" />
+            Create
+          </Button>
+        </DialogTrigger>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Create Calendar</DialogTitle>
+            <DialogDescription>
+              Please provide a title and description
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={(event) => handleCreateCalendar(event, calendarTitle, calendarDescription)} className="space-y-3">
+            <div className="space-y-2">
+            <Label htmlFor="calendarTitle">
+              Calendar Title
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span tabIndex={0}>
+                    <Info className="h-3 w-3 text-muted-foreground cursor-pointer" />
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent>
+                  The title of the Google calendar to be created
+                </TooltipContent>
+              </Tooltip>
+            </Label>
+            <Input
+                id="calendarTitle"
+                value={calendarTitle}
+                onChange={(e) => setCalendarTitle(e.target.value)}
+                autoFocus
+                placeholder="School"
+            />
+            </div>
+            <div className="space-y-2">
+            <Label htmlFor="calendarDescription">
+              Calendar Description
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span tabIndex={0}>
+                    <Info className="h-3 w-3 text-muted-foreground cursor-pointer" />
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent>
+                  The description of the Google calendar to be created
+                </TooltipContent>
+              </Tooltip>
+            </Label>
+            <Input
+                id="calendarDescription"
+                value={calendarDescription}
+                onChange={(e) => setCalendarDescription(e.target.value)}
+                placeholder="WebUntis Sync Calendar"
+            />
+            </div>
+            <Button type="submit" className="cursor-pointer">Save</Button>
+          </form>
+          <DialogFooter>
+            <div className="space-y-2">
+              <DialogDescription className="text-sm text-muted-foreground">
+                We will create a new calendar with the specified title and description.
+                If you prefer to change the color, you have to do this manually in your Google Calendar settings.
+              </DialogDescription>
+              <DialogDescription className="text-sm text-red-500">
+                You can also select another calendar later by ID. Note that only calendars created by WebUntis Sync can be used!
+              </DialogDescription>
+            </div>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    )
+  }
+
+  const ColorPickerItem = ({ label, selectedColor, onChange }) => {
+
+    // Google Calendar light mode colors
+    const lightColors = {
+      "0": { color: "#f0f0f0", tooltip: "Calendar Color" },
+      "1": { color: "#a4bdfc", tooltip: "Lavender" },
+      "2": { color: "#7ae7bf", tooltip: "Sage" },
+      "3": { color: "#dbadff", tooltip: "Grape" },
+      "4": { color: "#ff887c", tooltip: "Flamingo" },
+      "5": { color: "#fbd75b", tooltip: "Banana" },
+      "6": { color: "#ffb878", tooltip: "Tangerine" },
+      "7": { color: "#46d6db", tooltip: "Peacock" },
+      "8": { color: "#e1e1e1", tooltip: "Graphite" },
+      "9": { color: "#5484ed", tooltip: "Blueberry" },
+      "10": { color: "#51b749", tooltip: "Basil" },
+      "11": { color: "#dc2127", tooltip: "Tomato" },
+    }
+
+    // Google Calendar dark mode colors
+    const darkColors = {
+      "0": { color: "#f0f0f0", tooltip: "Calendar Color" },
+      "1": { color: "#7986cb", tooltip: "Lavender" },
+      "2": { color: "#33b679", tooltip: "Sage" },
+      "3": { color: "#8e24aa", tooltip: "Grape" },
+      "4": { color: "#e67c73", tooltip: "Flamingo" },
+      "5": { color: "#f6bf26", tooltip: "Banana" },
+      "6": { color: "#f4511e", tooltip: "Tangerine" },
+      "7": { color: "#039be5", tooltip: "Peacock" },
+      "8": { color: "#616161", tooltip: "Graphite" },
+      "9": { color: "#3f51b5", tooltip: "Blueberry" },
+      "10": { color: "#0b8043", tooltip: "Basil" },
+      "11": { color: "#d50000", tooltip: "Tomato" },
+    }
+
+    const colorLayout = [
+      ["11", "4"],
+      ["6", "5"],
+      ["2", "10"],
+      ["7", "9"],
+      ["1", "3"],
+      ["8", "0"],
+    ]
+
+    return (
+      <Popover>
+        <PopoverTrigger asChild>
+          <Button
+            className="cursor-pointer text-xs"
+            style={{
+              backgroundColor: darkColor ? darkColors[selectedColor]?.color : lightColors[selectedColor]?.color,
+              color: darkColor ? "#131314" : "#1f1f1f",
+              border: "1px solid #e2e2e2",
+            }}
+          >
+            {label}
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-auto" style={{ backgroundColor: darkColor ? "#131314" : "#ffffff" }}>
+          <div className="grid grid-cols-2 gap-2">
+            {colorLayout.map((row, rowIndex) => (
+              <React.Fragment key={`row-${rowIndex}`}>
+                {row.map((colorId) => (
+                  <Tooltip key={colorId} disableHoverableContent>
+                    <TooltipTrigger asChild>
+                      <div
+                        className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-sm"
+                        style={{
+                          backgroundColor: darkColor ? darkColors[colorId]?.color : lightColors[colorId]?.color,
+                          color: darkColor ? "#131314" : "#1f1f1f",
+                          border: "1px solid #e2e2e2",
+                        }}
+                        onClick={() => {
+                          onChange(colorId)
+                        }}
+                      >
+                        {colorId === "0" ? "C" : (selectedColor === colorId && <Check className="h-4 w-4" />)}
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      {darkColor ? darkColors[colorId]?.tooltip : lightColors[colorId]?.tooltip}
+                    </TooltipContent>
+                  </Tooltip>
+                ))}
+              </React.Fragment>
+            ))}
+          </div>
+        </PopoverContent>
+      </Popover>
+    )
   }
 
   return (
@@ -154,27 +393,101 @@ export default function Google({ user, config, fetchData, router }) {
             )}
             </div>
           </div>
-          <div className="space-y-2">
-          <Label htmlFor="calendarId">
-            Calendar ID
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <span tabIndex={0}>
-                  <Info className="h-3 w-3 text-muted-foreground cursor-pointer" />
-                </span>
-              </TooltipTrigger>
-              <TooltipContent>
-                Your Google Calendar ID, e.g. john.smith@gmail.com
-              </TooltipContent>
-            </Tooltip>
-          </Label>
-          <Input
-            id="calendarId"
-            value={calendarId}
-            onChange={(e) => setCalendarId(e.target.value)}
-            placeholder="...@group.calendar.google.com"
-          />
-          </div>
+          <form onSubmit={handleUpdateConfig} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="calendarId">
+                Calendar ID
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span tabIndex={0}>
+                      <Info className="h-3 w-3 text-muted-foreground cursor-pointer" />
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    The ID of the Google calendar to be used for creating events<br/>
+                    You can find the calendar ID in your Google Calendar settings.<br/>
+                    Due to permission restrictions, only calendars created by<br/>
+                    WebUntis Sync can be used! Therefore, use the "Create" button.<br/>
+                    The calendar ID is usually in the format: ...@group.calendar.google.com
+                  </TooltipContent>
+                </Tooltip>
+              </Label>
+              <div className="flex space-x-3">
+                <Input
+                  id="calendarId"
+                  value={calendarId}
+                  onChange={(e) => setCalendarId(e.target.value)}
+                  placeholder="...@group.calendar.google.com"
+                  disabled={!config.google.oauth_configured}
+                />
+                <CalendarDialog />
+              </div>
+            </div>
+            <div className="space-y-4">
+              <Label>
+                Event Colors
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span tabIndex={0}>
+                      <Info className="h-3 w-3 text-muted-foreground cursor-pointer" />
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    Select the colors for different event types.<br/>
+                    Google Calendar only supports the selectable colors.<br/>
+                    Note that the color of regular lessons is defined by<br/>
+                    the calendar color, which can be changed in Google Calendar!
+                  </TooltipContent>
+                </Tooltip>
+              </Label>
+              <div className="flex items-center space-x-2">
+                <Switch id="darkColor" checked={darkColor} onCheckedChange={setDarkColor} className="cursor-pointer" />
+                <Label htmlFor="darkColor">{darkColor ? "Dark" : "Light"} Mode</Label>
+              </div>
+              <Card className={darkColor ? "bg-[#131314] text-white" : "bg-white text-black"}>
+                <CardContent className="grid grid-cols-2 gap-4">
+                  <ColorPickerItem
+                    label="Exam Lesson"
+                    selectedColor={colorExam}
+                    onChange={setColorExam}
+                  />
+                  <ColorPickerItem
+                    label="Updated Lesson"
+                    selectedColor={colorUpdated}
+                    onChange={setColorUpdated}
+                  />
+                  <ColorPickerItem
+                    label="Cancelled Lesson"
+                    selectedColor={colorCancelled}
+                    onChange={setColorCancelled}
+                  />
+                  <ColorPickerItem
+                    label="Lesson with Info"
+                    selectedColor={colorHomework}
+                    onChange={setColorHomework}
+                  />
+                  <ColorPickerItem
+                    label="Message of the Day"
+                    selectedColor={colorMessageOfTheDay}
+                    onChange={setColorMessageOfTheDay}
+                  />
+                  <ColorPickerItem
+                    label="Holiday"
+                    selectedColor={colorHoliday}
+                    onChange={setColorHoliday}
+                  />
+                </CardContent>
+              </Card>
+            </div>
+            <div className="flex items-center space-x-3 mt-8">
+              <Button type="submit" className="cursor-pointer" disabled={!unsavedChanges()}>
+                Save changes
+              </Button>
+              {unsavedChanges() && (
+                <AlertCircle className="h-4 w-4 text-red-500" />
+              )}
+            </div>
+          </form>
         </CardContent>
       </Card>
     </TooltipProvider>
