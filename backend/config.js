@@ -72,7 +72,8 @@ async function loadConfigFile() {
             return null;
         }
         return data;
-    } catch (e) {
+    }
+    catch (e) {
         console.error('Error reading config file:', e);
         return null;
     }
@@ -90,7 +91,8 @@ export async function loadUserFile(user) {
         }
         data.refreshProfile = await getRefreshProfile(data);
         return data;
-    } catch (e) {
+    }
+    catch (e) {
         console.error('Error reading user config file:', e);
         return null;
     }
@@ -129,5 +131,5 @@ async function getRefreshProfile(user) {
     }
 
     return defaultProfile;
-    
+
 }

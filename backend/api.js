@@ -4,7 +4,9 @@ import bcrypt from 'bcrypt';
 import cookieParser from 'cookie-parser';
 import { api as apiConfig, users, saveUserFile, encryptionKey } from './config.js';
 import { encrypt, decrypt } from './utils.js';
-import { generateAuthUrl, processAuth, deleteAuth } from './google.js';
+import { generateAuthUrl, processAuth, deleteAuth, loadApi, createCalendar } from './google.js';
+import { auth } from 'googleapis/build/src/apis/abusiveexperiencereport/index.js';
+import { streamListeners } from './logs.js';
 
 export const app = express();
 let tokens = [];
@@ -251,6 +253,82 @@ app.delete('/api/webuntis/password', authenticate, refresh, async (req, res) => 
         console.error(err);
         res.status(500).json({ token: req.token });
     }
+
+});
+
+app.post('/api/google/calendar', authenticate, refresh, async (req, res) => {
+
+    try {
+        if (!req.user) return res.status(400).json({ token: req.token });
+
+        const title = req.body && req.body.title;
+        const description = req.body && req.body.description || '';
+        if (!title) return res.status(400).json({ token: req.token });
+
+        console.info('[api]', 'User', req.username, 'creates new Google calendar');
+
+        const api = await loadApi(req.username);
+        if (!api) return res.status(500).json({ token: req.token, error: 'Failed to load Google Calendar API: Please reauthorize!' });
+
+        const calendarId = await createCalendar(req.username, api, title, description);
+        if (!calendarId) return res.status(500).json({ token: req.token, error: 'Failed to create Google calendar!' });
+
+        res.status(200).json({ token: req.token });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ token: req.token, error: 'Failed to create Google calendar!' });
+    }
+
+});
+
+app.post('/api/sync', authenticate, refresh, async (req, res) => {
+
+    try {
+        if (!req.user) return res.status(400).json({ token: req.token });
+
+        console.info('[api]', 'User', req.username, 'requested sync');
+        // Here you would typically trigger a sync process, e.g., with WebUntis or Google Calendar
+
+        res.status(200).json({ token: req.token });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ token: req.token, error: 'Failed to trigger sync!' });
+    }
+
+});
+
+app.get('/api/logs/stream', authenticate, refresh, (req, res) => {
+
+    if (!req.user) return res.status(400).json({ token: req.token });
+
+    console.info('[api]', 'Opening log stream for user', req.username);
+
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+
+    const listener = (data) => {
+        try {
+            res.write(`data: ${JSON.stringify(data)}\n\n`);
+        }
+        catch (e) {
+            console.error('[api]', `Error writing to log stream for user ${req.username}:`, e);
+            console.info('[api]', 'Closing log stream for user', req.username);
+            const listeners = streamListeners.get(req.username) || [];
+            streamListeners.set(req.username, listeners.filter(l => l !== listener));
+            res.end();
+        }
+    };
+
+    const listeners = streamListeners.get(req.username) || [];
+    listeners.push(listener);
+    streamListeners.set(req.username, listeners);
+
+    req.on('close', () => {
+        console.info('[api]', 'Closing log stream for user', req.username);
+        const listeners = streamListeners.get(req.username) || [];
+        streamListeners.set(req.username, listeners.filter(l => l !== listener));
+        res.end();
+    });
 
 });
 

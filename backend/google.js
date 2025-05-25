@@ -147,60 +147,74 @@ export async function loadApi(username) {
 
 }
 
-export async function getCalendar(name, api, calendarPath) {
+export async function getCalendar(username, api) {
 
     try {
 
-        let calendarId;
-        try {
-            calendarId = await fs.readFile(calendarPath, 'utf8');
-            console.info(`[${name}]`, 'Loaded calendar ID from', calendarPath);
-        } catch (err) {
-            calendarId = await createCalendar(name, api, calendarPath);
+        const user = users[username];
+        if (!user) {
+            console.error(`[${username}]`, 'No user found while loading calendar');
+            return { error: 'Error loading Google calendar: No user found!' };
+        }
+
+        if (!user.google.calendarId) {
+            console.error(`[${username}]`, 'No calendar ID configured for user');
+            return { error: 'Error loading Google calendar: No calendar ID configured!' };
         }
 
         const res = await api.calendars.get({
-            calendarId: calendarId,
+            calendarId: user.google.calendarId
         });
 
-        console.info(`[${name}]`, 'Loaded calendar', res.data.summary, 'with ID', res.data.id);
+        console.info(`[${username}]`, 'Loaded calendar', res.data.summary, 'with ID', res.data.id);
 
-        return res.data.id;
+        return { calendarId: res.data.id, summary: res.data.summary }
 
     } catch (err) {
-        console.error(`[${name}]`, 'Error loading calendar:', err);
-        return null;
+        console.error(`[${username}]`, 'Error loading calendar:', err);
+        return { error: 'Error loading Google calendar: Likely an invalid calendar ID!' };
     }
     
 }
 
-async function createCalendar(name, api, calendarPath) {
+export async function createCalendar(username, api, title, description) {
 
-    const res = await api.calendars.insert({
-        requestBody: {
-            summary: 'School',
-            description: 'WebUntis',
-            timeZone: timeZone
+    try {
+        const user = users[username];
+        if (!user) {
+            console.error(`[${username}]`, 'No user found while creating calendar');
+            return null;
         }
-    });
 
-    console.info(`[${name}]`, 'Created new calendar', res.data.summary, 'with ID', res.data.id);
-    
-    await fs.writeFile(calendarPath, res.data.id);
-    console.info(`[${name}]`, 'Saved calendar ID to', calendarPath);
+        const res = await api.calendars.insert({
+            requestBody: {
+                summary: title,
+                description: description,
+                timeZone: timeZone
+            }
+        });
 
-    return res.data.id;
+        console.info(`[${username}]`, 'Created new calendar', res.data.summary, 'with ID', res.data.id);
+
+        user.google.calendarId = res.data.id;
+        await saveUserFile(username, user);
+
+        return res.data.id;
+    }
+    catch (err) {
+        console.error(`[${username}]`, 'Error creating calendar:', err);
+    }
 
 }
 
-export async function getColors(name, api) {
+// utility function, unused in production
+export async function getColors(username, api) {
 
     try {
         const res = await api.colors.get();
         return res.data.event;
     } catch (err) {
-        console.error(`[${name}]`, 'Error getting colors:', err);
-        return null;
+        console.error(`[${username}]`, 'Error getting colors:', err);
     }
 
 }

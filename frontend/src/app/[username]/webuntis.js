@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Info, Calendar, Clock, Eye, EyeOff, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -25,6 +25,21 @@ export default function WebUntis({ user, config, fetchData, router }) {
       username
     });
   }
+
+  useEffect(() => {
+    const handler = (e) => {
+      if (unsavedChanges()) {
+        e.preventDefault();
+        e.returnValue = "";
+        return "";
+      }
+    };
+
+    window.addEventListener("beforeunload", handler);
+    return () => {
+      window.removeEventListener("beforeunload", handler);
+    };
+  }, [unsavedChanges]);
 
   const handleDeletePassword = async (event) => {
     event.preventDefault();
@@ -206,7 +221,7 @@ export default function WebUntis({ user, config, fetchData, router }) {
                 </span>
               </TooltipTrigger>
               <TooltipContent>
-                The hostname of your school's WebUntis server, e.g. nessa.webuntis.com
+                the hostname of your school's WebUntis server, e.g. nessa.webuntis.com
               </TooltipContent>
             </Tooltip>
           </Label>
@@ -227,7 +242,7 @@ export default function WebUntis({ user, config, fetchData, router }) {
                 </span>
               </TooltipTrigger>
               <TooltipContent>
-                The WebUntis ID of your school, e.g. bodenseegym-lindau<br/>
+                <p className="pb-1">the WebUntis ID of your school, e.g. bodenseegym-lindau</p>
                 Can be determined by going to the WebUntis landing page,<br/>
                 searching for your school and looking for the<br/>
                 ?school=... parameter in the URL on the login page.
@@ -251,7 +266,7 @@ export default function WebUntis({ user, config, fetchData, router }) {
                 </span>
               </TooltipTrigger>
               <TooltipContent>
-                Your WebUntis login username, e.g. john.smith
+                your WebUntis login username, e.g. john.smith
               </TooltipContent>
             </Tooltip>
           </Label>
@@ -272,7 +287,7 @@ export default function WebUntis({ user, config, fetchData, router }) {
                 </span>
               </TooltipTrigger>
               <TooltipContent>
-                Your WebUntis login password
+                your WebUntis login password
               </TooltipContent>
             </Tooltip>
           </Label>
@@ -300,10 +315,19 @@ export default function WebUntis({ user, config, fetchData, router }) {
             )}
             </div>
             <div className="flex items-center space-x-3 mt-8">
-              <Button type="submit" className="cursor-pointer" disabled={!unsavedChanges() || !server || !school || !username}>
-                Save changes
-              </Button>
-              {(unsavedChanges() && server && school && username) && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div>
+                    <Button type="submit" className="cursor-pointer" disabled={!unsavedChanges()}>
+                      Save changes
+                    </Button>
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent>
+                  {unsavedChanges() ? "there are unsaved changes" : "no unsaved changes"}
+                </TooltipContent>
+              </Tooltip>
+              {unsavedChanges() && (
                 <AlertCircle className="h-4 w-4 text-red-500" />
               )}
             </div>

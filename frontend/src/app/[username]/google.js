@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { Info, Calendar, Clock, Plus, Car, Check, AlertCircle } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Info, Calendar, Clock, Plus, Car, Check, AlertCircle, StretchVerticalIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -25,6 +25,14 @@ export default function Google({ user, config, fetchData, router }) {
   const [colorMessageOfTheDay, setColorMessageOfTheDay] = useState(config.google.messageOfTheDayColor || "2");
   const [colorHoliday, setColorHoliday] = useState(config.google.holidayColor || "4");
   const [darkColor, setDarkColor] = useState(true);
+  const [reload, setReload] = useState(false);
+
+  useEffect(() => {
+    if (reload) {
+      setReload(false);
+      setCalendarId(config.google.calendarId || "");
+    }
+  }, [config.google.calendarId]);
 
   const unsavedChanges = () => {
     return JSON.stringify(config.google) !== JSON.stringify({
@@ -38,6 +46,21 @@ export default function Google({ user, config, fetchData, router }) {
       holidayColor: colorHoliday,
     });
   }
+
+  useEffect(() => {
+    const handler = (e) => {
+      if (unsavedChanges()) {
+        e.preventDefault();
+        e.returnValue = "";
+        return "";
+      }
+    };
+
+    window.addEventListener("beforeunload", handler);
+    return () => {
+      window.removeEventListener("beforeunload", handler);
+    };
+  }, [unsavedChanges]);
 
   const handleRevokeAccess = async (event) => {
     event.preventDefault();
@@ -71,14 +94,16 @@ export default function Google({ user, config, fetchData, router }) {
 
   }
 
-  const handleCreateCalendar = async (event, calendarTitle, calendarDescription) => {
+  const handleCreateCalendar = async (event, setCreating, calendarTitle, calendarDescription) => {
     event.preventDefault();
     if (!calendarTitle) {
       toast.error("Please enter a calendar title!");
       return;
     }
+    setCreating(true);
+    console.log("Create calendar ...");
+    const toastId = toast.loading("Creating calendar ... (this may take a few seconds)");
     try {
-      console.log("Create calendar ...")
       const response = await fetch(`/api/google/calendar`, {
         method: 'POST',
         body: JSON.stringify({ title: calendarTitle, description: calendarDescription }),
@@ -86,6 +111,7 @@ export default function Google({ user, config, fetchData, router }) {
           'Content-Type': 'application/json',
         }
       });
+      setCreating(false);
       if (response.status === 400) {
         router.push('/');
         return;
@@ -95,15 +121,21 @@ export default function Google({ user, config, fetchData, router }) {
         return;
       }
       if (response.status === 200) {
-        toast.success(`Calendar "${calendarTitle}" created successfully!`);
+        toast.success(`Calendar "${calendarTitle}" created successfully!`, { id: toastId });
+        setReload(true);
         fetchData();
         return;
       }
-      toast.error('Failed to create calendar!');
+      let responseJson = '';
+      try {
+        responseJson = await response.json();
+      } catch (err) {}
+      toast.error(responseJson?.error || 'Failed to create calendar!', { id: toastId });
       console.error('Failed to create calendar:', response.status);
     } catch (err) {
-      toast.error('Failed to create calendar!');
+      toast.error('Failed to create calendar!', { id: toastId });
       console.error('Failed to create calendar:', err);
+      setCreating(false);
     }
   }
 
@@ -154,10 +186,11 @@ export default function Google({ user, config, fetchData, router }) {
   const CalendarDialog = () => {
     const [calendarTitle, setCalendarTitle] = useState("School");
     const [calendarDescription, setCalendarDescription] = useState("WebUntis Sync Calendar");
+    const [creating, setCreating] = useState(false);
     return (
       <Dialog>
         <DialogTrigger asChild>
-          <Button variant="outline" className="cursor-pointer">
+          <Button variant="outline" className="cursor-pointer" disabled={!config.google.oauth_configured}>
             <Plus className="h-4 w-4" />
             Create
           </Button>
@@ -169,7 +202,7 @@ export default function Google({ user, config, fetchData, router }) {
               Please provide a title and description
             </DialogDescription>
           </DialogHeader>
-          <form onSubmit={(event) => handleCreateCalendar(event, calendarTitle, calendarDescription)} className="space-y-3">
+          <form onSubmit={(event) => handleCreateCalendar(event, setCreating, calendarTitle, calendarDescription)} className="space-y-3">
             <div className="space-y-2">
             <Label htmlFor="calendarTitle">
               Calendar Title
@@ -190,6 +223,7 @@ export default function Google({ user, config, fetchData, router }) {
                 onChange={(e) => setCalendarTitle(e.target.value)}
                 autoFocus
                 placeholder="School"
+                disabled={creating}
             />
             </div>
             <div className="space-y-2">
@@ -211,9 +245,10 @@ export default function Google({ user, config, fetchData, router }) {
                 value={calendarDescription}
                 onChange={(e) => setCalendarDescription(e.target.value)}
                 placeholder="WebUntis Sync Calendar"
+                disabled={creating}
             />
             </div>
-            <Button type="submit" className="cursor-pointer">Save</Button>
+            <Button type="submit" className="cursor-pointer" disabled={creating}>Save</Button>
           </form>
           <DialogFooter>
             <div className="space-y-2">
@@ -282,13 +317,20 @@ export default function Google({ user, config, fetchData, router }) {
             style={{
               backgroundColor: darkColor ? darkColors[selectedColor]?.color : lightColors[selectedColor]?.color,
               color: darkColor ? "#131314" : "#1f1f1f",
-              border: "1px solid #e2e2e2",
+              border: "1px solid " + (darkColor ? "#4b4b4b" : "#e2e2e2"),
             }}
+            disabled={!config.google.oauth_configured}
           >
             {label}
           </Button>
         </PopoverTrigger>
-        <PopoverContent className="w-auto" style={{ backgroundColor: darkColor ? "#131314" : "#ffffff" }}>
+        <PopoverContent
+          className="w-auto"
+          style={{
+            backgroundColor: darkColor ? "#131314" : "#ffffff",
+            border: "1px solid " + (darkColor ? "#4b4b4b" : "#e2e2e2"),
+          }}
+        >
           <div className="grid grid-cols-2 gap-2">
             {colorLayout.map((row, rowIndex) => (
               <React.Fragment key={`row-${rowIndex}`}>
@@ -300,7 +342,7 @@ export default function Google({ user, config, fetchData, router }) {
                         style={{
                           backgroundColor: darkColor ? darkColors[colorId]?.color : lightColors[colorId]?.color,
                           color: darkColor ? "#131314" : "#1f1f1f",
-                          border: "1px solid #e2e2e2",
+                          border: "1px solid " + (darkColor ? "#4b4b4b" : "#e2e2e2"),
                         }}
                         onClick={() => {
                           onChange(colorId)
@@ -404,7 +446,7 @@ export default function Google({ user, config, fetchData, router }) {
                     </span>
                   </TooltipTrigger>
                   <TooltipContent>
-                    The ID of the Google calendar to be used for creating events<br/>
+                    <p className="pb-1">the ID of the Google calendar to be used for creating events</p>
                     You can find the calendar ID in your Google Calendar settings.<br/>
                     Due to permission restrictions, only calendars created by<br/>
                     WebUntis Sync can be used! Therefore, use the "Create" button.<br/>
@@ -480,9 +522,18 @@ export default function Google({ user, config, fetchData, router }) {
               </Card>
             </div>
             <div className="flex items-center space-x-3 mt-8">
-              <Button type="submit" className="cursor-pointer" disabled={!unsavedChanges()}>
-                Save changes
-              </Button>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div>
+                    <Button type="submit" className="cursor-pointer" disabled={!unsavedChanges()}>
+                      Save changes
+                    </Button>
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent>
+                  {unsavedChanges() ? "there are unsaved changes" : "no unsaved changes"}
+                </TooltipContent>
+              </Tooltip>
               {unsavedChanges() && (
                 <AlertCircle className="h-4 w-4 text-red-500" />
               )}
