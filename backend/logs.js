@@ -37,7 +37,7 @@ export async function loadLogs(user, before = null, limit = 100) {
   }
 }
 
-export async function log(user, execution, type, message, data) {
+export async function log(user, execution, type, message, data = null) {
   const logFilePath = path.join("users", "logs-" + user + ".log");
   const logEntry = {
     timestamp: new Date().toISOString(),
@@ -57,5 +57,13 @@ export async function log(user, execution, type, message, data) {
   const listeners = streamListeners.get(user) || [];
   for (const listener of listeners) {
     listener(logEntry);
+  }
+
+  if (type === "error") {
+    console.error(`[${user}]`, message, data ? JSON.stringify(data) : "");
+  } else if (type === "warning") {
+    console.warn(`[${user}]`, message, data ? JSON.stringify(data) : "");
+  } else {
+    console.info(`[${user}]`, message, data ? JSON.stringify(data) : "");
   }
 }
