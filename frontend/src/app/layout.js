@@ -10,17 +10,16 @@ const poppins = Poppins({
 
 export const metadata = {
   title: "WebUntis Sync - Nikogenia",
-  description: "Automation workflow to fetch timetables from Webuntis and importing them into Google Calendar",
+  description:
+    "Automation workflow to fetch timetables from Webuntis and importing them into Google Calendar",
 };
 
 export default function RootLayout({ children }) {
   return (
     <html lang="en">
-      <body
-        className={`${poppins.variable} antialiased`}
-      >
+      <body className={`${poppins.variable} antialiased`}>
         {children}
-        <Toaster/>
+        <Toaster />
       </body>
     </html>
   );
