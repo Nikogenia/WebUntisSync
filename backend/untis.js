@@ -5,6 +5,7 @@ import { log } from "./logs.js";
 export async function fetchWebUntis(
   username,
   credentials,
+  password,
   execution,
   fullRefresh
 ) {
@@ -12,7 +13,7 @@ export async function fetchWebUntis(
     const untis = new WebUntis(
       credentials.school,
       credentials.username,
-      credentials.password,
+      password,
       credentials.server
     );
 

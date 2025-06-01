@@ -96,6 +96,7 @@ export async function loadUserFile(user) {
       return null;
     }
     data.refreshProfile = await getRefreshProfile(data);
+    data.lastRefresh = new Date(data.lastRefresh || 0);
     return data;
   } catch (e) {
     console.error("Error reading user config file:", e);

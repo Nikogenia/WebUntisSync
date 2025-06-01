@@ -11,6 +11,7 @@ api:
   port: 6482
   token_secret: pleasechangeme  # PLEASE CHANGE THIS! Random value can be generated with crypto.
   https: false  # Set to true to increase security when HTTPS is used.
+  proxy: false  # Set to true when using a reverse proxy and the X-Forwarded-For header is active
 
 # Secret encryption key
 encryption_key: pleasechangemetoo  # PLEASE CHANGE THIS! Random value can be generated with crypto.

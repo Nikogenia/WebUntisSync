@@ -1,9 +1,15 @@
 import path from "path";
 import process from "process";
 import crypto from "crypto";
-import { TaskQueue } from "./utils.js";
+import { TaskQueue, decrypt } from "./utils.js";
 import { app as api } from "./api.js";
-import { loadConfig, saveUserFile, api as apiConfig, users } from "./config.js";
+import {
+  loadConfig,
+  saveUserFile,
+  api as apiConfig,
+  users,
+  encryptionKey,
+} from "./config.js";
 import { fetchWebUntis, generateLessons } from "./untis.js";
 import {
   loadApi,
@@ -68,7 +74,7 @@ async function cycle() {
   }
 }
 
-async function refreshUser(username, user, fullRefresh = false) {
+export async function refreshUser(username, user, fullRefresh = false) {
   const execution = crypto
     .randomBytes(6)
     .toString("base64")
@@ -83,19 +89,30 @@ async function refreshUser(username, user, fullRefresh = false) {
       execution,
       "error",
       "Skipping sync: Last sync was too recent - timeout of " +
-        `${(new Date() - (user.lastRefresh || 0)) / 1000} seconds remaining.`
+        `${Math.ceil(
+          ((fullRefresh ? fullTimeout : quickTimeout) -
+            (new Date() - (user.lastRefresh || 0))) /
+            1000
+        )} seconds remaining.`
     );
     return;
   }
   user.lastRefresh = new Date();
   await saveUserFile(username, user);
   try {
+    const password = decrypt(user.webuntis_password, encryptionKey);
     const {
       start,
       end,
       data,
       error: fetchError,
-    } = await fetchWebUntis(username, user.webuntis, execution, fullRefresh);
+    } = await fetchWebUntis(
+      username,
+      user.webuntis,
+      password,
+      execution,
+      fullRefresh
+    );
 
     if (fetchError) {
       log(username, execution, "error", fetchError);
