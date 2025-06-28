@@ -247,7 +247,7 @@ export default function WebUntis({ user, config, fetchData, router }) {
                     </span>
                   </TooltipTrigger>
                   <TooltipContent>
-                    the hostname of your school's WebUntis server, e.g.
+                    the hostname of your school&apos;s WebUntis server, e.g.
                     nessa.webuntis.com
                   </TooltipContent>
                 </Tooltip>
@@ -336,14 +336,16 @@ export default function WebUntis({ user, config, fetchData, router }) {
                 </div>
                 {config.webuntis.password_configured ? (
                   <div className="text-sm text-muted-foreground flex items-center">
-                    <span className="flex-1">has been configured on</span>
-                    <Calendar className="ml-2 mr-1 h-4 w-4" />
-                    <span>
-                      {formatDate(config.webuntis.password_configured)}
-                    </span>
-                    <Clock className="ml-2 mr-1 h-4 w-4" />
-                    <span>
-                      {formatTime(config.webuntis.password_configured)}
+                    has been configured on
+                    <span className="flex-none flex items-center">
+                      <Calendar className="ml-2 mr-1 h-4 w-4" />
+                      <span>
+                        {formatDate(config.webuntis.password_configured)}
+                      </span>
+                      <Clock className="ml-2 mr-1 h-4 w-4" />
+                      <span>
+                        {formatTime(config.webuntis.password_configured)}
+                      </span>
                     </span>
                   </div>
                 ) : (

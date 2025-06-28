@@ -1,7 +1,5 @@
-"use client";
+import Landing from "./landing";
 
-import Image from "next/image";
-
-export default function Home() {
-  return <div></div>;
+export default async function Page({ params }) {
+  return <Landing params={await params} />;
 }

@@ -106,8 +106,10 @@ export async function loadUserFile(user) {
 
 export async function saveUserFile(user, data) {
   try {
-    delete data.refreshProfile;
-    const rawData = JSON.stringify(data, null, 4);
+    const dataCopy = { ...data };
+    delete dataCopy.refreshProfile;
+    delete dataCopy.refreshProfiles;
+    const rawData = JSON.stringify(dataCopy, null, 4);
     await fs.writeFile(
       path.join("users", "config-" + user + ".json"),
       rawData,
@@ -119,7 +121,7 @@ export async function saveUserFile(user, data) {
   }
 }
 
-async function getRefreshProfile(user) {
+export async function getRefreshProfile(user) {
   let defaultProfile = {
     name: "default",
     weekday: [],

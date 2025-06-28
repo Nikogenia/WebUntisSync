@@ -10,6 +10,8 @@ import {
   users,
   saveUserFile,
   encryptionKey,
+  refreshProfiles,
+  getRefreshProfile,
 } from "./config.js";
 import { encrypt } from "./utils.js";
 import {
@@ -241,6 +243,7 @@ app.get("/api/config", authenticate, refresh, (req, res) => {
     google: req.user.google,
     refresh: req.user.refresh,
     refreshProfile: req.user.refreshProfile,
+    refreshProfiles: refreshProfiles,
     token: req.token,
   });
 });
@@ -303,6 +306,7 @@ app.put(
       req.user.google = newConfig.google || req.user.google;
       req.user.refresh =
         newConfig.refresh !== undefined ? newConfig.refresh : req.user.refresh;
+      req.user.refreshProfile = await getRefreshProfile(req.user);
 
       await saveUserFile(req.username, req.user);
 
@@ -314,6 +318,7 @@ app.put(
         google: req.user.google,
         refresh: req.user.refresh,
         refreshProfile: req.user.refreshProfile,
+        refreshProfiles: refreshProfiles,
         token: req.token,
       });
     } catch (err) {

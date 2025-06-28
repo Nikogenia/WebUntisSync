@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { Calendar, Check, Info, X, Clock } from "lucide-react";
 import {
   Card,
@@ -15,6 +15,9 @@ import { toast } from "sonner";
 
 export default function Logs({ router }) {
   const [logs, setLogs] = useState([]);
+  const [showTopGradient, setShowTopGradient] = useState(false);
+  const [showBottomGradient, setShowBottomGradient] = useState(true);
+  const scrollAreaRef = useRef(null);
 
   const fetchLogs = async (limit, before) => {
     try {
@@ -54,7 +57,7 @@ export default function Logs({ router }) {
     eventSource.onmessage = (event) => {
       const log = JSON.parse(event.data);
       console.log("New log received:", log);
-      setLogs((prevLogs) => [...prevLogs, log]);
+      setLogs((prevLogs) => [log, ...prevLogs]);
     };
 
     eventSource.onerror = (error) => {
@@ -69,19 +72,43 @@ export default function Logs({ router }) {
     };
   };
 
+  const handleScroll = (event) => {
+    const { scrollTop, scrollHeight, clientHeight } = event.target;
+    setShowTopGradient(scrollTop > 0);
+    setShowBottomGradient(scrollTop + clientHeight < scrollHeight);
+  };
+
   useEffect(() => {
-    fetchLogs(100, null);
+    fetchLogs(20, null);
     return setupLogStream();
   }, []);
 
+  useEffect(() => {
+    const scrollElement = scrollAreaRef.current?.querySelector(
+      "[data-radix-scroll-area-viewport]"
+    );
+    if (scrollElement) {
+      scrollElement.addEventListener("scroll", handleScroll);
+      return () => {
+        scrollElement.removeEventListener("scroll", handleScroll);
+      };
+    }
+  }, [scrollAreaRef]);
+
   return (
-    <Card className="flex flex-col">
+    <Card className="h-full flex flex-col">
       <CardHeader>
         <CardTitle>Sync Logs</CardTitle>
         <CardDescription>Recent synchronization activity</CardDescription>
       </CardHeader>
-      <CardContent className="flex-1">
-        <ScrollArea className="h-[60vh] lg:h-full">
+      <CardContent className="flex-1 overflow-hidden relative">
+        {showTopGradient && (
+          <div className="absolute top-0 left-0 right-0 h-8 bg-gradient-to-b from-background to-transparent pointer-events-none z-10" />
+        )}
+        {showBottomGradient && (
+          <div className="absolute bottom-0 left-0 right-0 h-8 bg-gradient-to-t from-background to-transparent pointer-events-none z-10" />
+        )}
+        <ScrollArea className="h-full" ref={scrollAreaRef}>
           <div className="space-y-4">
             {logs.map((log) => (
               <div

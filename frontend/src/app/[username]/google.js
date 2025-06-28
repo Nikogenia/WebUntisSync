@@ -518,10 +518,10 @@ export default function Google({ user, config, fetchData, router }) {
                         events.
                       </AlertDialogDescription>
                       <AlertDialogDescription className="text-red-500">
-                        WebUntis Sync won't be able to access your calendars and
-                        events. Our service creates a new calendar and only uses
-                        this one to create events. Your personal data is not
-                        shared with us!
+                        WebUntis Sync won&apos;t be able to access your
+                        calendars and events. Our service creates a new calendar
+                        and only uses this one to create events. Your personal
+                        data is not shared with us!
                       </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
@@ -542,11 +542,13 @@ export default function Google({ user, config, fetchData, router }) {
               </div>
               {config.google.oauth_configured ? (
                 <div className="text-sm text-muted-foreground flex items-center">
-                  <span className="flex-1">has been authorized on</span>
-                  <Calendar className="ml-2 mr-1 h-4 w-4" />
-                  <span>{formatDate(config.google.oauth_configured)}</span>
-                  <Clock className="ml-2 mr-1 h-4 w-4" />
-                  <span>{formatTime(config.google.oauth_configured)}</span>
+                  has been authorized on
+                  <span className="flex-none flex items-center">
+                    <Calendar className="ml-2 mr-1 h-4 w-4" />
+                    <span>{formatDate(config.google.oauth_configured)}</span>
+                    <Clock className="ml-2 mr-1 h-4 w-4" />
+                    <span>{formatTime(config.google.oauth_configured)}</span>
+                  </span>
                 </div>
               ) : (
                 <div className="text-sm text-muted-foreground">
@@ -575,8 +577,8 @@ export default function Google({ user, config, fetchData, router }) {
                     <br />
                     Due to permission restrictions, only calendars created by
                     <br />
-                    WebUntis Sync can be used! Therefore, use the "Create"
-                    button.
+                    WebUntis Sync can be used! Therefore, use the
+                    &quot;Create&quot; button.
                     <br />
                     The calendar ID is usually in the format:
                     ...@group.calendar.google.com
@@ -630,7 +632,7 @@ export default function Google({ user, config, fetchData, router }) {
                   darkColor ? "bg-[#131314] text-white" : "bg-white text-black"
                 }
               >
-                <CardContent className="grid grid-cols-2 gap-4">
+                <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <ColorPickerItem
                     label="Exam Lesson"
                     selectedColor={colorExam}

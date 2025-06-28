@@ -22,6 +22,16 @@ export async function loadLogs(user, before = null, limit = 100) {
       } catch (err) {}
       return true;
     });
+    if (logs.length < limit) {
+      logs.push({
+        timestamp: new Date(0).toISOString(),
+        execution: null,
+        type: "start",
+        message: "Beginning of logs",
+        data: null,
+      });
+    }
+
     return logs;
   } catch (err) {
     console.error(`[${user}] Error loading logs:`, err);

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -8,10 +8,13 @@ import WebUntis from "./webuntis";
 import Logs from "./logs";
 import { toast } from "sonner";
 import Google from "./google";
+import Status from "./status";
 
 export default function Dashboard({ params }) {
   const username = params.username;
   const router = useRouter();
+  const leftColumn = useRef(null);
+  const rightColumn = useRef(null);
   const [config, setConfig] = useState(null);
 
   const fetchData = async () => {
@@ -31,6 +34,7 @@ export default function Dashboard({ params }) {
         toast.error("Failed to fetch configuration data!");
         console.error("Failed to fetch configuration data:", response.status);
         return;
+        setTimeout(() => fetchData(), 10000);
       }
       setConfig(await response.json());
     } catch (error) {
@@ -42,6 +46,24 @@ export default function Dashboard({ params }) {
   useEffect(() => {
     fetchData();
   }, [username]);
+
+  const updateHeight = () => {
+    if (leftColumn.current && rightColumn.current) {
+      rightColumn.current.style.height = `${leftColumn.current.offsetHeight}px`;
+      if (window.innerWidth < 1024) {
+        rightColumn.current.style.height = "80vh";
+      }
+    }
+  };
+
+  useEffect(() => {
+    const raf = requestAnimationFrame(updateHeight);
+    window.addEventListener("resize", updateHeight);
+    return () => {
+      cancelAnimationFrame(raf);
+      window.removeEventListener("resize", updateHeight);
+    };
+  }, [config]);
 
   const handleLogout = async (event) => {
     event.preventDefault();
@@ -132,23 +154,31 @@ export default function Dashboard({ params }) {
           </Button>
         </div>
       </header>
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 p-4 md:p-6">
-        <div className="space-y-6">
-          <WebUntis
-            user={username}
-            config={config}
-            fetchData={fetchData}
-            router={router}
-          />
-          <Google
-            user={username}
-            config={config}
-            fetchData={fetchData}
-            router={router}
-          />
-        </div>
-        <div>
-          <Logs router={router} />
+      <div className="p-4 md:p-6 space-y-6">
+        <Status
+          user={username}
+          config={config}
+          fetchData={fetchData}
+          router={router}
+        />
+        <div className="flex flex-col lg:flex-row gap-6 lg:items-start">
+          <div ref={leftColumn} className="lg:w-1/2 space-y-6">
+            <WebUntis
+              user={username}
+              config={config}
+              fetchData={fetchData}
+              router={router}
+            />
+            <Google
+              user={username}
+              config={config}
+              fetchData={fetchData}
+              router={router}
+            />
+          </div>
+          <div ref={rightColumn} className="lg:w-1/2">
+            <Logs router={router} />
+          </div>
         </div>
       </div>
     </div>
