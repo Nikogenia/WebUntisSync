@@ -30,7 +30,7 @@ export default function Landing({ params }) {
   }, []);
 
   return (
-    <div className="min-h-screen relative overflow-hidden">
+    <div className="h-svh relative overflow-hidden">
       <div className="absolute inset-0 z-0">
         {backgroundImages.map((image, index) => (
           <div
@@ -46,7 +46,7 @@ export default function Landing({ params }) {
         <div className="absolute inset-0 bg-black/40" />
       </div>
 
-      <div className="relative z-10 min-h-screen flex items-center justify-center p-4">
+      <div className="relative z-10 h-svh flex items-center justify-center p-4">
         <Card className="w-full max-w-2xl bg-white/90 backdrop-blur-sm shadow-2xl py-8">
           <CardHeader className="px-8 md:px-12 text-center">
             <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-primary/10">
@@ -61,14 +61,14 @@ export default function Landing({ params }) {
             </CardTitle>
             <CardDescription className="text-sm">by Nikogenia</CardDescription>
           </CardHeader>
-          <CardContent className="px-8 md:px-12 space-y-6">
-            <p className="text-gray-700 leading-relaxed">
+          <CardContent className="px-8 md:px-12 space-y-4 md:space-y-6">
+            <p className="text-gray-700 leading-relaxed text-sm md:text-base">
               Seamlessly synchronize your WebUntis timetable into Google
               Calendar. Never miss a class or appointment again by having it all
               in one place. We take care of any changes in your schedule, so you
               can focus on what really matters!
             </p>
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-sm md:text-base">
               <p className="text-blue-800 font-medium">
                 ✨ Automatic synchronization between WebUntis and Google
                 Calendar
@@ -81,12 +81,13 @@ export default function Landing({ params }) {
               </p>
             </div>
             <div className="space-y-4 pt-4">
-              <div className="flex items-center justify-center space-x-2 text-gray-700">
+              <div className="flex items-center justify-center space-x-2 text-gray-700 text-base md:text-lg">
                 <Mail className="w-5 h-5" />
-                <span className="text-lg font-medium">Contact:</span>
+                <span className="font-medium hidden md:inline">Contact</span>
+                <span className="text-gray-500 hidden md:inline"> | </span>
                 <a
                   href="mailto:webuntis@nikogenia.de"
-                  className="text-blue-600 hover:text-blue-800 font-medium underline"
+                  className="text-blue-600 hover:text-blue-800 font-medium"
                 >
                   webuntis@nikogenia.de
                 </a>

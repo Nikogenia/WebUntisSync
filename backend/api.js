@@ -476,6 +476,7 @@ app.get("/api/logs/stream", authenticate, (req, res) => {
 
   console.info("[api]", "Opening log stream for user", req.username);
 
+  res.setHeader("Content-Encoding", "none");
   res.setHeader("Content-Type", "text/event-stream");
   res.setHeader("Cache-Control", "no-cache");
   res.setHeader("Connection", "keep-alive");
@@ -515,6 +516,10 @@ app.get("/api/logs/stream", authenticate, (req, res) => {
   const listeners = streamListeners.get(req.username) || [];
   listeners.push(listener);
   streamListeners.set(req.username, listeners);
+
+  res.write(
+    'data: {"type":"connection","message":"Connected to log stream"}\n\n'
+  );
 
   req.on("close", closeStream);
 });

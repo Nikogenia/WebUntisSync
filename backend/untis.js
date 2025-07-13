@@ -26,6 +26,8 @@ export async function fetchWebUntis(
     await untis.login();
 
     const currentSchoolyear = await untis.getCurrentSchoolyear();
+    const endOfSchoolyear = new Date(currentSchoolyear.endDate);
+    endOfSchoolyear.setHours(23, 59, 59, 999);
 
     const now = new Date();
     let start = new Date(
@@ -46,9 +48,9 @@ export async function fetchWebUntis(
       59,
       999
     );
-    if (fullRefresh) {
-      end = new Date(currentSchoolyear.endDate);
-      end.setHours(23, 59, 59, 999);
+
+    if (fullRefresh || end > endOfSchoolyear) {
+      end = endOfSchoolyear;
     }
 
     const data = {

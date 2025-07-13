@@ -19,8 +19,11 @@ export default function Logs({ user, router }) {
   const [showBottomGradient, setShowBottomGradient] = useState(true);
   const scrollAreaRef = useRef(null);
   const hasInitialized = useRef(false);
+  const fetchingLogs = useRef(false);
 
   const fetchLogs = async (limit, before) => {
+    if (fetchingLogs.current) return;
+    fetchingLogs.current = true;
     try {
       console.log(`Fetching ${limit} logs before ${before} ...`);
       const response = await fetch(
@@ -63,6 +66,7 @@ export default function Logs({ user, router }) {
       console.error("Failed to fetch logs:", error);
       toast.error("Failed to fetch logs!");
     }
+    fetchingLogs.current = false;
   };
 
   const setupLogStream = () => {
@@ -71,8 +75,16 @@ export default function Logs({ user, router }) {
       withCredentials: true,
     });
 
+    eventSource.onopen = (event) => {
+      console.log("Log stream connection opened");
+    };
+
     eventSource.onmessage = (event) => {
       const log = JSON.parse(event.data);
+      if (log.type === "connection") {
+        console.log("Log stream connection confirmed");
+        return;
+      }
       console.log("New log received:", log);
       setLogs((prevLogs) => {
         const combined = [log, ...prevLogs];
@@ -120,7 +132,7 @@ export default function Logs({ user, router }) {
         const before = logs.at(-1)?.timestamp
           ? new Date(logs.at(-1)?.timestamp)
           : null;
-        fetchLogs(20, isNaN(before) ? null : before?.getTime());
+        fetchLogs(100, isNaN(before) ? null : before?.getTime());
       }
     },
     [logs]
@@ -129,7 +141,7 @@ export default function Logs({ user, router }) {
   useEffect(() => {
     if (hasInitialized.current) return;
     hasInitialized.current = true;
-    fetchLogs(20, null);
+    fetchLogs(50, null);
   }, []);
 
   useEffect(() => {

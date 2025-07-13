@@ -88,12 +88,12 @@ export async function refreshUser(username, user, fullRefresh = false) {
       username,
       execution,
       "error",
-      "Skipping sync: Last sync was too recent - timeout of " +
+      "Skipping sync: Last sync was too recent, timeout of " +
         `${Math.ceil(
           ((fullRefresh ? fullTimeout : quickTimeout) -
             (new Date() - (user.lastRefresh || 0))) /
             1000
-        )} seconds remaining.`
+        )} seconds remaining`
     );
     return;
   }
