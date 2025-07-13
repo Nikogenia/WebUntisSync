@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -25,6 +25,7 @@ export default function Login({ params }) {
   const [error, setError] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const hasInitialized = useRef(false);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -35,9 +36,10 @@ export default function Login({ params }) {
           headers: {
             "Content-Type": "application/json",
           },
+          credentials: "include",
         });
         if (response.status === 200) {
-          router.push(`/${username}`);
+          setTimeout(() => router.push(`/${username}`), 500);
           return;
         }
         if (response.status === 400) {
@@ -58,6 +60,8 @@ export default function Login({ params }) {
         console.error("Failed to fetch authentication state:", error);
       }
     };
+    if (hasInitialized.current) return;
+    hasInitialized.current = true;
     fetchData();
   }, [username]);
 
@@ -85,9 +89,10 @@ export default function Login({ params }) {
         headers: {
           "Content-Type": "application/json",
         },
+        credentials: "include",
       });
       if (response.status === 200) {
-        router.push(`/${username}`);
+        setTimeout(() => router.push(`/${username}`), 500);
       } else {
         setError("Registration failed! Please try another password.");
         console.error("Registration failed:", response.status);
@@ -120,9 +125,10 @@ export default function Login({ params }) {
         headers: {
           "Content-Type": "application/json",
         },
+        credentials: "include",
       });
       if (response.status === 200) {
-        router.push(`/${username}`);
+        setTimeout(() => router.push(`/${username}`), 500);
       } else {
         setError("Login failed! Please check your password and try again.");
         console.error("Login failed:", response.status);

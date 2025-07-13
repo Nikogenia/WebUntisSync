@@ -71,9 +71,10 @@ export default function WebUntis({ user, config, fetchData, router }) {
         headers: {
           "Content-Type": "application/json",
         },
+        credentials: "include",
       });
       if (response.status === 401 || response.status === 403) {
-        router.push(`/${user}/login`);
+        setTimeout(() => router.push(`/${user}/login`), 500);
         return;
       }
       if (response.status === 204) {
@@ -103,9 +104,10 @@ export default function WebUntis({ user, config, fetchData, router }) {
         headers: {
           "Content-Type": "application/json",
         },
+        credentials: "include",
       });
       if (response.status === 401 || response.status === 403) {
-        router.push(`/${user}/login`);
+        setTimeout(() => router.push(`/${user}/login`), 500);
         return;
       }
       if (response.status === 200) {
@@ -141,9 +143,10 @@ export default function WebUntis({ user, config, fetchData, router }) {
         headers: {
           "Content-Type": "application/json",
         },
+        credentials: "include",
       });
       if (response.status === 401 || response.status === 403) {
-        router.push(`/${user}/login`);
+        setTimeout(() => router.push(`/${user}/login`), 500);
         return;
       }
       if (response.status === 200) {

@@ -1,16 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import {
-  Info,
-  Calendar,
-  Clock,
-  Plus,
-  Car,
-  Check,
-  AlertCircle,
-  StretchVerticalIcon,
-} from "lucide-react";
+import { Info, Calendar, Clock, Plus, Check, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -125,9 +116,10 @@ export default function Google({ user, config, fetchData, router }) {
         headers: {
           "Content-Type": "application/json",
         },
+        credentials: "include",
       });
       if (response.status === 401 || response.status === 403) {
-        router.push(`/${user}/login`);
+        setTimeout(() => router.push(`/${user}/login`), 500);
         return;
       }
       if (response.status === 204) {
@@ -169,10 +161,11 @@ export default function Google({ user, config, fetchData, router }) {
         headers: {
           "Content-Type": "application/json",
         },
+        credentials: "include",
       });
       setCreating(false);
       if (response.status === 401 || response.status === 403) {
-        router.push(`/${user}/login`);
+        setTimeout(() => router.push(`/${user}/login`), 500);
         return;
       }
       if (response.status === 200) {
@@ -222,9 +215,10 @@ export default function Google({ user, config, fetchData, router }) {
         headers: {
           "Content-Type": "application/json",
         },
+        credentials: "include",
       });
       if (response.status === 401 || response.status === 403) {
-        router.push(`/${user}/login`);
+        setTimeout(() => router.push(`/${user}/login`), 500);
         return;
       }
       if (response.status === 200) {

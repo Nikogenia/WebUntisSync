@@ -16,6 +16,7 @@ export default function Dashboard({ params }) {
   const leftColumn = useRef(null);
   const rightColumn = useRef(null);
   const [config, setConfig] = useState(null);
+  const hasInitialized = useRef(false);
 
   const fetchData = async () => {
     try {
@@ -25,16 +26,16 @@ export default function Dashboard({ params }) {
         headers: {
           "Content-Type": "application/json",
         },
+        credentials: "include",
       });
       if (response.status === 403 || response.status === 401) {
-        router.push(`/${username}/login`);
+        setTimeout(() => router.push(`/${username}/login`), 500);
         return;
       }
       if (response.status !== 200) {
         toast.error("Failed to fetch configuration data!");
         console.error("Failed to fetch configuration data:", response.status);
         return;
-        setTimeout(() => fetchData(), 10000);
       }
       setConfig(await response.json());
     } catch (error) {
@@ -44,6 +45,8 @@ export default function Dashboard({ params }) {
   };
 
   useEffect(() => {
+    if (hasInitialized.current) return;
+    hasInitialized.current = true;
     fetchData();
   }, [username]);
 
@@ -74,13 +77,14 @@ export default function Dashboard({ params }) {
         headers: {
           "Content-Type": "application/json",
         },
+        credentials: "include",
       });
       if (
         response.status === 204 ||
         response.status === 401 ||
         response.status === 403
       ) {
-        router.push(`/${username}/login`);
+        setTimeout(() => router.push(`/${username}/login`), 500);
       } else {
         toast.error("Logout failed!");
         console.error("Logout failed:", response.status);
@@ -177,7 +181,7 @@ export default function Dashboard({ params }) {
             />
           </div>
           <div ref={rightColumn} className="lg:w-1/2">
-            <Logs router={router} />
+            <Logs user={username} router={router} />
           </div>
         </div>
       </div>

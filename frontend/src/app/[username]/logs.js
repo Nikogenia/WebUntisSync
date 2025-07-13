@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { Calendar, Check, Info, X, Clock } from "lucide-react";
 import {
   Card,
@@ -13,11 +13,12 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { formatDate, formatTime } from "@/lib/utils";
 import { toast } from "sonner";
 
-export default function Logs({ router }) {
+export default function Logs({ user, router }) {
   const [logs, setLogs] = useState([]);
   const [showTopGradient, setShowTopGradient] = useState(false);
   const [showBottomGradient, setShowBottomGradient] = useState(true);
   const scrollAreaRef = useRef(null);
+  const hasInitialized = useRef(false);
 
   const fetchLogs = async (limit, before) => {
     try {
@@ -29,10 +30,11 @@ export default function Logs({ router }) {
           headers: {
             "Content-Type": "application/json",
           },
+          credentials: "include",
         }
       );
       if (response.status === 403 || response.status === 401) {
-        router.push(`/${username}/login`);
+        setTimeout(() => router.push(`/${user}/login`), 500);
         return;
       }
       if (response.status !== 200) {
@@ -40,8 +42,23 @@ export default function Logs({ router }) {
         console.error("Failed to fetch logs:", response.status);
         return;
       }
-      const { logs } = await response.json();
-      setLogs(logs);
+      const newLogs = (await response.json())?.logs;
+      setLogs((prevLogs) => {
+        const combined = [...prevLogs, ...newLogs];
+        const unique = combined.filter(
+          (log, index, arr) =>
+            arr.findIndex(
+              (item) => JSON.stringify(item) === JSON.stringify(log)
+            ) === index
+        );
+        return unique.sort((a, b) => {
+          const dateA = a.timestamp ? new Date(a.timestamp) : new Date(0);
+          const dateB = b.timestamp ? new Date(b.timestamp) : new Date(0);
+          const timeA = isNaN(dateA.getTime()) ? 0 : dateA.getTime();
+          const timeB = isNaN(dateB.getTime()) ? 0 : dateB.getTime();
+          return timeB - timeA;
+        });
+      });
     } catch (error) {
       console.error("Failed to fetch logs:", error);
       toast.error("Failed to fetch logs!");
@@ -57,7 +74,22 @@ export default function Logs({ router }) {
     eventSource.onmessage = (event) => {
       const log = JSON.parse(event.data);
       console.log("New log received:", log);
-      setLogs((prevLogs) => [log, ...prevLogs]);
+      setLogs((prevLogs) => {
+        const combined = [log, ...prevLogs];
+        const unique = combined.filter(
+          (logItem, index, arr) =>
+            arr.findIndex(
+              (item) => JSON.stringify(item) === JSON.stringify(logItem)
+            ) === index
+        );
+        return unique.sort((a, b) => {
+          const dateA = a.timestamp ? new Date(a.timestamp) : new Date(0);
+          const dateB = b.timestamp ? new Date(b.timestamp) : new Date(0);
+          const timeA = isNaN(dateA.getTime()) ? 0 : dateA.getTime();
+          const timeB = isNaN(dateB.getTime()) ? 0 : dateB.getTime();
+          return timeB - timeA;
+        });
+      });
     };
 
     eventSource.onerror = (error) => {
@@ -72,14 +104,35 @@ export default function Logs({ router }) {
     };
   };
 
-  const handleScroll = (event) => {
-    const { scrollTop, scrollHeight, clientHeight } = event.target;
-    setShowTopGradient(scrollTop > 0);
-    setShowBottomGradient(scrollTop + clientHeight < scrollHeight);
-  };
+  const handleScroll = useCallback(
+    (event) => {
+      const { scrollTop, scrollHeight, clientHeight } = event.target;
+      const beginning = logs.at(-1)?.type === "start";
+      setShowTopGradient(scrollTop > 0);
+      setShowBottomGradient(
+        scrollTop + clientHeight < scrollHeight || !beginning
+      );
+      if (
+        scrollTop + clientHeight >= scrollHeight - 100 &&
+        !beginning &&
+        scrollHeight > 200
+      ) {
+        const before = logs.at(-1)?.timestamp
+          ? new Date(logs.at(-1)?.timestamp)
+          : null;
+        fetchLogs(20, isNaN(before) ? null : before?.getTime());
+      }
+    },
+    [logs]
+  );
 
   useEffect(() => {
+    if (hasInitialized.current) return;
+    hasInitialized.current = true;
     fetchLogs(20, null);
+  }, []);
+
+  useEffect(() => {
     return setupLogStream();
   }, []);
 
@@ -93,7 +146,7 @@ export default function Logs({ router }) {
         scrollElement.removeEventListener("scroll", handleScroll);
       };
     }
-  }, [scrollAreaRef]);
+  }, [handleScroll]);
 
   return (
     <Card className="h-full flex flex-col">
@@ -110,35 +163,38 @@ export default function Logs({ router }) {
         )}
         <ScrollArea className="h-full" ref={scrollAreaRef}>
           <div className="space-y-4">
-            {logs.map((log) => (
-              <div
-                key={new Date(log.timestamp)?.getTime()}
-                className="flex flex-col space-y-2 rounded-lg border p-4"
-              >
-                <div className="flex items-center gap-2">
-                  <div className="flex items-center w-5">
-                    {log.type === "error" ? (
-                      <X className="h-5 w-5 text-red-500" />
-                    ) : log.type === "info" ? (
-                      <Info className="h-4 w-4 text-muted-foreground" />
-                    ) : (
-                      <Check className="h-5 w-5 text-green-500" />
-                    )}
-                  </div>
-                  <div className="flex items-center justify-between flex-1 gap-2">
-                    <span className="text-sm flex-1 font-medium">
-                      {log.message}
-                    </span>
-                    <div className="text-sm text-muted-foreground flex items-center">
-                      <Calendar className="mr-1 h-4 w-4" />
-                      <span>{formatDate(log.timestamp)}</span>
-                      <Clock className="ml-2 mr-1 h-4 w-4" />
-                      <span>{formatTime(log.timestamp)}</span>
+            {logs.map(
+              (log) =>
+                log.type !== "start" && (
+                  <div
+                    key={new Date(log.timestamp)?.getTime()}
+                    className="flex flex-col space-y-2 rounded-lg border p-4"
+                  >
+                    <div className="flex items-center gap-2">
+                      <div className="flex items-center w-5">
+                        {log.type === "error" ? (
+                          <X className="h-5 w-5 text-red-500" />
+                        ) : log.type === "info" ? (
+                          <Info className="h-4 w-4 text-muted-foreground" />
+                        ) : (
+                          <Check className="h-5 w-5 text-green-500" />
+                        )}
+                      </div>
+                      <div className="flex items-center justify-between flex-1 gap-2">
+                        <span className="text-sm flex-1 font-medium">
+                          {log.message}
+                        </span>
+                        <div className="text-sm text-muted-foreground flex items-center">
+                          <Calendar className="mr-1 h-4 w-4" />
+                          <span>{formatDate(log.timestamp)}</span>
+                          <Clock className="ml-2 mr-1 h-4 w-4" />
+                          <span>{formatTime(log.timestamp)}</span>
+                        </div>
+                      </div>
                     </div>
                   </div>
-                </div>
-              </div>
-            ))}
+                )
+            )}
           </div>
         </ScrollArea>
       </CardContent>
