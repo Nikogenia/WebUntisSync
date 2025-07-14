@@ -1,5 +1,3 @@
-import path from "path";
-import process from "process";
 import crypto from "crypto";
 import { TaskQueue, decrypt } from "./utils.js";
 import { app as api } from "./api.js";
@@ -119,8 +117,10 @@ export async function refreshUser(username, user, fullRefresh = false) {
       return;
     }
 
-    console.info(`[${user.name}]`, "Generate lessons from timetable");
-    const lessons = await generateLessons(data);
+    const logName = `${username}/${execution}`;
+
+    console.info(`[${logName}]`, "Generate lessons from timetable");
+    const lessons = await generateLessons(data, user);
 
     const api = await loadApi(username);
     if (!api) {
@@ -128,7 +128,7 @@ export async function refreshUser(username, user, fullRefresh = false) {
         username,
         execution,
         "error",
-        "Failed to load Google Calendar API: Please Reauthorize!"
+        "Failed to load Google Calendar API: Please reauthorize!"
       );
       return;
     }
@@ -143,20 +143,102 @@ export async function refreshUser(username, user, fullRefresh = false) {
       return;
     }
 
-    const queue = new TaskQueue(5);
-    await uploadHolidays(user.name, api, calendarId, data.holidays, queue);
-    await uploadNews(user.name, api, calendarId, data.news, queue);
-    await uploadLessons(user.name, api, calendarId, lessons, queue);
-    await queue.waitUntilEmpty();
-
     log(
       username,
       execution,
-      "success",
-      "Successfully synced WebUntis to Google Calendar",
+      "info",
+      "Loaded Google Calendar API, uploading events"
+    );
+
+    const stats = {
+      skipped: 0,
+      created: 0,
+      updated: 0,
+      errors: 0,
+    };
+
+    const queue = new TaskQueue(5);
+    await uploadHolidays(
+      logName,
+      api,
+      calendarId,
+      data.holidays,
+      queue,
+      stats,
+      user.google
+    );
+    await uploadNews(
+      logName,
+      api,
+      calendarId,
+      data.news,
+      queue,
+      stats,
+      user.google
+    );
+    await uploadLessons(
+      logName,
+      api,
+      calendarId,
+      lessons,
+      queue,
+      stats,
+      user.google,
+      start,
+      end
+    );
+    await queue.waitUntilEmpty();
+
+    if (stats.errors === 0 && stats.created === 0 && stats.updated === 0) {
+      log(
+        username,
+        execution,
+        "success",
+        "Nothing changed, successfully verified sync of WebUntis and Google Calendar",
+        {
+          calendarTitle: title,
+          duration: (new Date() - user.lastRefresh) / 1000,
+        }
+      );
+      return;
+    }
+    if (stats.errors === 0) {
+      log(
+        username,
+        execution,
+        "success",
+        "Successfully synced WebUntis to Google Calendar",
+        {
+          calendarTitle: title,
+          duration: (new Date() - user.lastRefresh) / 1000,
+          ...stats,
+        }
+      );
+      return;
+    }
+    if (stats.created > 0 || stats.updated > 0) {
+      log(
+        username,
+        execution,
+        "warning",
+        "Synced WebUntis to Google Calendar with partial success",
+        {
+          calendarTitle: title,
+          duration: (new Date() - user.lastRefresh) / 1000,
+          ...stats,
+        }
+      );
+      return;
+    }
+    log(
+      username,
+      execution,
+      "error",
+      "Upload to Google Calendar failed: Please check configuration or contact support!",
       {
         calendarTitle: title,
         duration: (new Date() - user.lastRefresh) / 1000,
+        ...stats,
       }
     );
   } catch (e) {

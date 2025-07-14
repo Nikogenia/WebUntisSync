@@ -53,7 +53,7 @@ export async function log(user, execution, type, message, data = null) {
   try {
     await fs.appendFile(logFilePath, logLine, "utf8");
   } catch (e) {
-    console.error(`[${user}] Error writing to log file:`, e);
+    console.error(`[${user}/${execution}] Error writing to log file:`, e);
   }
 
   const listeners = streamListeners.get(user) || [];
@@ -62,10 +62,22 @@ export async function log(user, execution, type, message, data = null) {
   }
 
   if (type === "error") {
-    console.error(`[${user}]`, message, data ? JSON.stringify(data) : "");
+    console.error(
+      `[${user}/${execution}]`,
+      message,
+      data ? JSON.stringify(data) : ""
+    );
   } else if (type === "warning") {
-    console.warn(`[${user}]`, message, data ? JSON.stringify(data) : "");
+    console.warn(
+      `[${user}/${execution}]`,
+      message,
+      data ? JSON.stringify(data) : ""
+    );
   } else {
-    console.info(`[${user}]`, message, data ? JSON.stringify(data) : "");
+    console.info(
+      `[${user}/${execution}]`,
+      message,
+      data ? JSON.stringify(data) : ""
+    );
   }
 }

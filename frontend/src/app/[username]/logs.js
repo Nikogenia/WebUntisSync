@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useRef, useCallback } from "react";
-import { Calendar, Check, Info, X, Clock } from "lucide-react";
+import { Calendar, Check, Info, X, Clock, TriangleAlert } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -178,32 +178,41 @@ export default function Logs({ user, router }) {
             {logs.map(
               (log) =>
                 log.type !== "start" && (
-                  <div
-                    key={new Date(log.timestamp)?.getTime()}
-                    className="flex flex-col space-y-2 rounded-lg border p-4"
-                  >
-                    <div className="flex items-center gap-2">
-                      <div className="flex items-center w-5">
-                        {log.type === "error" ? (
-                          <X className="h-5 w-5 text-red-500" />
-                        ) : log.type === "info" ? (
-                          <Info className="h-4 w-4 text-muted-foreground" />
-                        ) : (
-                          <Check className="h-5 w-5 text-green-500" />
-                        )}
-                      </div>
-                      <div className="flex items-center justify-between flex-1 gap-2">
-                        <span className="text-sm flex-1 font-medium">
-                          {log.message}
-                        </span>
-                        <div className="text-sm text-muted-foreground flex items-center">
-                          <Calendar className="mr-1 h-4 w-4" />
-                          <span>{formatDate(log.timestamp)}</span>
-                          <Clock className="ml-2 mr-1 h-4 w-4" />
-                          <span>{formatTime(log.timestamp)}</span>
+                  <div key={new Date(log.timestamp)?.getTime()}>
+                    <div className="flex flex-col space-y-2 rounded-lg border p-4">
+                      <div className="flex items-center gap-2">
+                        <div className="flex items-center w-5">
+                          {log.type === "error" ? (
+                            <X className="h-5 w-5 text-red-500" />
+                          ) : log.type === "info" ? (
+                            <Info className="h-4 w-4 text-muted-foreground" />
+                          ) : log.type === "warning" ? (
+                            <TriangleAlert className="h-5 w-5 text-yellow-500" />
+                          ) : (
+                            <Check className="h-5 w-5 text-green-500" />
+                          )}
+                        </div>
+                        <div className="flex items-center justify-between flex-1 gap-2">
+                          <span className="text-sm flex-1 font-medium">
+                            {log.message}
+                          </span>
+                          <div className="text-sm text-muted-foreground flex items-center">
+                            <Calendar className="mr-1 h-4 w-4" />
+                            <span>{formatDate(log.timestamp)}</span>
+                            <Clock className="ml-2 mr-1 h-4 w-4" />
+                            <span>{formatTime(log.timestamp)}</span>
+                          </div>
                         </div>
                       </div>
                     </div>
+                    {logs.indexOf(log) < logs.length - 1 &&
+                      logs.at(logs.indexOf(log) + 1).execution !==
+                        log.execution && (
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground italic mt-2 mb-6">
+                          <span>Execution ID {log.execution}</span>
+                          <div className="flex-1 h-px bg-border"></div>
+                        </div>
+                      )}
                   </div>
                 )
             )}

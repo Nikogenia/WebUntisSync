@@ -164,19 +164,28 @@ export default function Status({ user, config, fetchData, router }) {
                   ))}
                 </SelectContent>
               </Select>
-              <div className="flex items-center space-x-2">
-                <Switch
-                  id="active"
-                  checked={config.active}
-                  onCheckedChange={(value) =>
-                    handleUpdateConfig({ active: value })
-                  }
-                  className="cursor-pointer data-[state=checked]:bg-green-500 data-[state=unchecked]:bg-red-500"
-                />
-                <Label htmlFor="active">
-                  {config.active ? "Active" : "Inactive"}
-                </Label>
-              </div>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div className="flex items-center space-x-2">
+                    <Switch
+                      id="active"
+                      checked={config.active}
+                      onCheckedChange={(value) =>
+                        handleUpdateConfig({ active: value })
+                      }
+                      className="cursor-pointer data-[state=checked]:bg-green-500 data-[state=unchecked]:bg-red-500"
+                    />
+                    <Label htmlFor="active">
+                      {config.active ? "Active" : "Inactive"}
+                    </Label>
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent>
+                  {config.active
+                    ? "toggle to deactivate automatic sync"
+                    : "toggle to activate automatic sync"}
+                </TooltipContent>
+              </Tooltip>
             </div>
             <div className="flex items-center flex-wrap gap-3">
               <Tooltip>

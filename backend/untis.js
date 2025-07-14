@@ -53,15 +53,17 @@ export async function fetchWebUntis(
       end = endOfSchoolyear;
     }
 
+    const logName = `${username}/${execution}`;
+
     const data = {
-      timetable: await fetchTimetable(username, untis, start, end),
-      holidays: await fetchHolidays(username, untis),
-      news: await fetchNews(username, untis, start, 14),
-      homework: await fetchHomework(username, untis, start, end),
-      exams: await fetchExams(username, untis, start, end),
-      subjects: await fetchSubjects(username, untis),
-      teachers: await fetchTeachers(username, untis),
-      rooms: await fetchRooms(username, untis),
+      timetable: await fetchTimetable(logName, untis, start, end),
+      holidays: await fetchHolidays(logName, untis),
+      news: await fetchNews(logName, untis, start, 14),
+      homework: await fetchHomework(logName, untis, start, end),
+      exams: await fetchExams(logName, untis, start, end),
+      subjects: await fetchSubjects(logName, untis),
+      teachers: await fetchTeachers(logName, untis),
+      rooms: await fetchRooms(logName, untis),
     };
 
     log(
