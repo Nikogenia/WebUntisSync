@@ -21,6 +21,8 @@ import {
   School,
   TreePalm,
   Newspaper,
+  Calendar1,
+  Timer,
 } from "lucide-react";
 import {
   Tooltip,
@@ -53,6 +55,11 @@ const DATA_ICONS = {
   roomsCount: [<School className="h-3 w-3 mr-0.5" />, "rooms"],
   holidaysCount: [<TreePalm className="h-3 w-3 mr-0.5" />, "holidays"],
   newsCount: [<Newspaper className="h-3 w-3 mr-0.5" />, "news"],
+  calendarTitle: [
+    <Calendar1 className="h-3 w-3 mr-0.5" />,
+    "Google Calendar title",
+  ],
+  duration: [<Timer className="h-3 w-3 mr-0.5" />, "time elapsed"],
 };
 
 export default function Logs({ user, router }) {
@@ -248,6 +255,7 @@ export default function Logs({ user, router }) {
                                             <span className="flex items-center mr-2">
                                               {DATA_ICONS[key][0]}
                                               {value}
+                                              {key === "duration" ? "s" : ""}
                                             </span>
                                           </TooltipTrigger>
                                           <TooltipContent>
