@@ -17,6 +17,8 @@ export async function fetchWebUntis(
       credentials.server
     );
 
+    const logName = `${username}/${execution}`;
+
     log(
       username,
       execution,
@@ -24,10 +26,6 @@ export async function fetchWebUntis(
       `Logging in to WebUntis server ${credentials.server} with user ${credentials.username} at ${credentials.school}`
     );
     await untis.login();
-
-    const currentSchoolyear = await untis.getCurrentSchoolyear();
-    const endOfSchoolyear = new Date(currentSchoolyear.endDate);
-    endOfSchoolyear.setHours(23, 59, 59, 999);
 
     const now = new Date();
     let start = new Date(
@@ -39,6 +37,38 @@ export async function fetchWebUntis(
       0,
       0
     );
+
+    let schoolyear = await untis.getCurrentSchoolyear();
+    if (
+      !schoolyear ||
+      start > new Date(new Date(schoolyear.endDate).setHours(23, 59, 59, 999))
+    ) {
+      console.info(
+        `[${logName}]`,
+        "Invalid current school year (fetching latest):",
+        schoolyear
+      );
+      schoolyear = await untis.getLatestSchoolyear();
+      if (
+        !schoolyear ||
+        start > new Date(new Date(schoolyear.endDate).setHours(23, 59, 59, 999))
+      ) {
+        console.info(
+          `[${logName}]`,
+          "Invalid latest school year (error):",
+          schoolyear
+        );
+        return {
+          error:
+            "No school year data found! Check WebUntis, when data is available there, contact support",
+        };
+      }
+      start = new Date(new Date(schoolyear.startDate).setHours(0, 0, 0, 0));
+    }
+    const endOfSchoolyear = new Date(
+      new Date(schoolyear.endDate).setHours(23, 59, 59, 999)
+    );
+
     let end = new Date(
       start.getFullYear(),
       start.getMonth(),
@@ -52,8 +82,6 @@ export async function fetchWebUntis(
     if (fullRefresh || end > endOfSchoolyear) {
       end = endOfSchoolyear;
     }
-
-    const logName = `${username}/${execution}`;
 
     const data = {
       timetable: await fetchTimetable(logName, untis, start, end),
