@@ -8,17 +8,18 @@ import {
   CardTitle,
   CardDescription,
 } from "@/components/ui/card";
-import { Mail } from "lucide-react";
+import { Mail, Eye } from "lucide-react";
 
 const backgroundImages = [
-  "/placeholder.svg?height=1080&width=1920&text=Calendar+Sync+1",
-  "/placeholder.svg?height=1080&width=1920&text=Schedule+Management+2",
-  "/placeholder.svg?height=1080&width=1920&text=Time+Organization+3",
-  "/placeholder.svg?height=1080&width=1920&text=WebUntis+Integration+4",
+  "/background1.png",
+  "/background2.png",
+  "/background3.png",
+  "/background4.png",
 ];
 
 export default function Landing({ params }) {
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [isEyeHovered, setIsEyeHovered] = useState(false);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -30,7 +31,7 @@ export default function Landing({ params }) {
   }, []);
 
   return (
-    <div className="h-svh relative overflow-hidden">
+    <div className="h-svh relative overflow-hidden" data-page="landing">
       <div className="absolute inset-0 z-0">
         {backgroundImages.map((image, index) => (
           <div
@@ -47,7 +48,19 @@ export default function Landing({ params }) {
       </div>
 
       <div className="relative z-10 h-svh flex items-center justify-center p-4">
-        <Card className="w-full max-w-2xl bg-white/90 backdrop-blur-sm shadow-2xl py-8">
+        <Card
+          className={`w-full max-w-2xl backdrop-blur-sm shadow-2xl py-8 md:py-12 relative transition-all duration-300 ${
+            isEyeHovered ? "opacity-10" : "bg-white/80"
+          }`}
+        >
+          <button
+            className="absolute top-4 right-4 p-2 transition-all duration-200 z-10"
+            onMouseEnter={() => setIsEyeHovered(true)}
+            onMouseLeave={() => setIsEyeHovered(false)}
+            aria-label="Toggle transparency"
+          >
+            <Eye className="h-4 w-4" />
+          </button>
           <CardHeader className="px-8 md:px-12 text-center">
             <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-primary/10">
               <img
@@ -62,7 +75,7 @@ export default function Landing({ params }) {
             <CardDescription className="text-sm">by Nikogenia</CardDescription>
           </CardHeader>
           <CardContent className="px-8 md:px-12 space-y-4 md:space-y-6">
-            <p className="text-gray-700 leading-relaxed text-sm md:text-base">
+            <p className="text-gray-800 leading-relaxed text-sm md:text-base">
               Seamlessly synchronize your WebUntis timetable into Google
               Calendar. Never miss a class or appointment again by having it all
               in one place. We take care of any changes in your schedule, so you
@@ -74,20 +87,20 @@ export default function Landing({ params }) {
                 Calendar
               </p>
               <p className="text-blue-700 mt-1">
-                📅 Real-time updates for schedule changes
+                📅 Frequent updates for schedule changes
               </p>
               <p className="text-blue-700 mt-1">
                 🔒 Secure and reliable data handling
               </p>
             </div>
             <div className="space-y-4 pt-4">
-              <div className="flex items-center justify-center space-x-2 text-gray-700 text-base md:text-lg">
+              <div className="flex items-center justify-center space-x-2 text-base md:text-lg">
                 <Mail className="w-5 h-5" />
                 <span className="font-medium hidden md:inline">Contact</span>
                 <span className="text-gray-500 hidden md:inline"> | </span>
                 <a
                   href="mailto:webuntis@nikogenia.de"
-                  className="text-blue-600 hover:text-blue-800 font-medium"
+                  className="text-blue-700 hover:text-blue-800 font-medium"
                 >
                   webuntis@nikogenia.de
                 </a>

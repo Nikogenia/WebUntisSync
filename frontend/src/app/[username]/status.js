@@ -99,7 +99,7 @@ export default function Status({ user, config, fetchData, router }) {
         <div className="mb-1">
           Weekday
           <br />
-          {profile.weekday.map((day, index) => (
+          {profile.weekday?.map((day, index) => (
             <span key={index}>
               {day}
               {index < profile.weekday.length - 1 && ", "}
@@ -112,7 +112,7 @@ export default function Status({ user, config, fetchData, router }) {
         <div>
           Weekend
           <br />
-          {profile.weekend.map((day, index) => (
+          {profile.weekend?.map((day, index) => (
             <span key={index}>
               {day}
               {index < profile.weekend.length - 1 && ", "}

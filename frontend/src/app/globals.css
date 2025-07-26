@@ -120,3 +120,8 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* Landing page specific styles */
+body:has([data-page="landing"]) {
+  background-color: black;
+}
