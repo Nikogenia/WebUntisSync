@@ -23,6 +23,7 @@ import {
   Newspaper,
   Calendar1,
   Timer,
+  Settings,
 } from "lucide-react";
 import {
   Tooltip,
@@ -225,6 +226,17 @@ export default function Logs({ user, router }) {
           )}
           <ScrollArea className="h-full" ref={scrollAreaRef}>
             <div className="space-y-4">
+              {(!logs ||
+                logs.length === 0 ||
+                (logs.length === 1 && logs[0].type === "start")) && (
+                <div className="flex items-center flex-col text-center mt-40 text-muted-foreground">
+                  <Settings className="h-8 w-8 mb-2" />
+                  <span className="font-medium">
+                    There are no logs to display
+                  </span>
+                  <span>Please configure and sync your account</span>
+                </div>
+              )}
               {logs.map(
                 (log) =>
                   log.type !== "start" && (

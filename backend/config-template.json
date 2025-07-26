@@ -1,0 +1,27 @@
+{
+  "version": "1.0",
+  "fullname": "John Smith",
+  "refresh": "default",
+  "password": "",
+  "password_created": "",
+  "active": false,
+  "webuntis": {
+    "server": "nessa.webuntis.com",
+    "school": "bodenseegym-lindau",
+    "username": "john.smith",
+    "password_configured": ""
+  },
+  "webuntis_password": "",
+  "google": {
+    "oauth_configured": "",
+    "calendarId": "",
+    "examColor": "6",
+    "updatedColor": "2",
+    "cancelledColor": "10",
+    "homeworkColor": "5",
+    "messageOfTheDayColor": "2",
+    "holidayColor": "4"
+  },
+  "google_oauth": "",
+  "lastRefresh": ""
+}

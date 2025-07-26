@@ -242,6 +242,7 @@ export async function refreshUser(username, user, fullRefresh = false) {
       }
     );
   } catch (e) {
+    console.info(`[${username}/${execution}]`, "Unexpected error:", e);
     log(
       username,
       execution,
