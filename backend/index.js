@@ -98,7 +98,27 @@ export async function refreshUser(username, user, fullRefresh = false) {
   user.lastRefresh = new Date();
   await saveUserFile(username, user);
   try {
-    const password = decrypt(user.webuntis_password, encryptionKey);
+    let password = "";
+    if (!user.webuntis_password) {
+      log(
+        username,
+        execution,
+        "error",
+        "WebUntis password not configured: Please enter your password in the settings!"
+      );
+      return;
+    }
+    try {
+      password = decrypt(user.webuntis_password, encryptionKey);
+    } catch (e) {
+      log(
+        username,
+        execution,
+        "error",
+        "Invalid WebUntis password: Please re-enter your password in the settings!"
+      );
+      return;
+    }
     const {
       start,
       end,

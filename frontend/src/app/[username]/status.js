@@ -32,6 +32,13 @@ import {
 import { toast } from "sonner";
 
 export default function Status({ user, config, fetchData, router }) {
+  const configured =
+    config.webuntis?.server &&
+    config.webuntis?.school &&
+    config.webuntis?.username &&
+    config.webuntis?.password_configured &&
+    config.google?.oauth_configured &&
+    config.google?.calendarId;
   const handleTriggerSync = async (full_refresh) => {
     try {
       console.log("Trigger sync ...");
@@ -91,6 +98,13 @@ export default function Status({ user, config, fetchData, router }) {
   };
 
   const RefreshProfileTooltipContent = ({ profile }) => {
+    if (!configured) {
+      return (
+        <TooltipContent>
+          please configure your WebUntis and Google Calendar settings first
+        </TooltipContent>
+      );
+    }
     if (!profile) {
       return <TooltipContent>no profile selected</TooltipContent>;
     }
@@ -140,10 +154,11 @@ export default function Status({ user, config, fetchData, router }) {
                   handleUpdateConfig({ refresh: value })
                 }
                 defaultValue={config.refresh}
+                disabled={!configured}
               >
                 <Tooltip delayDuration={400}>
                   <TooltipTrigger asChild>
-                    <SelectTrigger className="flex-1">
+                    <SelectTrigger className="flex-1" disabled={!configured}>
                       <SelectValue placeholder="Profile" />
                     </SelectTrigger>
                   </TooltipTrigger>
@@ -174,6 +189,7 @@ export default function Status({ user, config, fetchData, router }) {
                         handleUpdateConfig({ active: value })
                       }
                       className="cursor-pointer data-[state=checked]:bg-green-500 data-[state=unchecked]:bg-red-500"
+                      disabled={!configured && !config.active}
                     />
                     <Label htmlFor="active">
                       {config.active ? "Active" : "Inactive"}
@@ -181,7 +197,9 @@ export default function Status({ user, config, fetchData, router }) {
                   </div>
                 </TooltipTrigger>
                 <TooltipContent>
-                  {config.active
+                  {!configured
+                    ? "please configure your WebUntis and Google Calendar settings first"
+                    : config.active
                     ? "toggle to deactivate automatic sync"
                     : "toggle to activate automatic sync"}
                 </TooltipContent>
@@ -190,32 +208,49 @@ export default function Status({ user, config, fetchData, router }) {
             <div className="flex items-center flex-wrap gap-3">
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Button
-                    onClick={() => handleTriggerSync(false)}
-                    className="cursor-pointer"
-                  >
-                    <RefreshCcw className="h-4 w-4" />
-                    Quick Sync
-                  </Button>
+                  <div>
+                    <Button
+                      onClick={() => handleTriggerSync(false)}
+                      className="cursor-pointer"
+                      disabled={!configured}
+                    >
+                      <RefreshCcw className="h-4 w-4" />
+                      Quick Sync
+                    </Button>
+                  </div>
                 </TooltipTrigger>
                 <TooltipContent>
-                  trigger sync of calendar for the next 3 weeks
+                  {!configured
+                    ? "please configure your WebUntis and Google Calendar settings first"
+                    : "trigger sync of calendar for the next 3 weeks"}
                 </TooltipContent>
               </Tooltip>
               <AlertDialog>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <AlertDialogTrigger asChild>
-                      <Button className="cursor-pointer" variant="outline">
-                        <CalendarSync className="h-4 w-4" />
-                        Full Sync
-                      </Button>
-                    </AlertDialogTrigger>
+                    <div>
+                      <AlertDialogTrigger asChild>
+                        <Button
+                          className="cursor-pointer"
+                          variant="outline"
+                          disabled={!configured}
+                        >
+                          <CalendarSync className="h-4 w-4" />
+                          Full Sync
+                        </Button>
+                      </AlertDialogTrigger>
+                    </div>
                   </TooltipTrigger>
                   <TooltipContent>
-                    trigger sync of calendar for as far into the
-                    <br />
-                    future as WebUntis data is available
+                    {!configured ? (
+                      "please configure your WebUntis and Google Calendar settings first"
+                    ) : (
+                      <>
+                        trigger sync of calendar for as far into the
+                        <br />
+                        future as WebUntis data is available
+                      </>
+                    )}
                   </TooltipContent>
                 </Tooltip>
                 <AlertDialogContent>

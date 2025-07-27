@@ -241,12 +241,19 @@ export default function WebUntis({ user, config, fetchData, router }) {
         <CardContent>
           <form onSubmit={handleUpdateConfig} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="server">
+              <Label htmlFor="server" className={server ? "" : "text-red-600"}>
                 Server
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <span tabIndex={0}>
-                      <Info className="h-3 w-3 text-muted-foreground cursor-pointer" />
+                      <Info
+                        className={
+                          "h-3 w-3 cursor-pointer" +
+                          (server
+                            ? " text-muted-foreground"
+                            : " text-red-500 animate-spin")
+                        }
+                      />
                     </span>
                   </TooltipTrigger>
                   <TooltipContent>
@@ -263,12 +270,19 @@ export default function WebUntis({ user, config, fetchData, router }) {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="school">
+              <Label htmlFor="school" className={school ? "" : "text-red-600"}>
                 School
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <span tabIndex={0}>
-                      <Info className="h-3 w-3 text-muted-foreground cursor-pointer" />
+                      <Info
+                        className={
+                          "h-3 w-3 cursor-pointer" +
+                          (school
+                            ? " text-muted-foreground"
+                            : " text-red-500 animate-spin")
+                        }
+                      />
                     </span>
                   </TooltipTrigger>
                   <TooltipContent>
@@ -291,12 +305,22 @@ export default function WebUntis({ user, config, fetchData, router }) {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="username">
+              <Label
+                htmlFor="username"
+                className={username ? "" : "text-red-600"}
+              >
                 Username
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <span tabIndex={0}>
-                      <Info className="h-3 w-3 text-muted-foreground cursor-pointer" />
+                      <Info
+                        className={
+                          "h-3 w-3 cursor-pointer" +
+                          (username
+                            ? " text-muted-foreground"
+                            : " text-red-500 animate-spin")
+                        }
+                      />
                     </span>
                   </TooltipTrigger>
                   <TooltipContent>
@@ -312,12 +336,23 @@ export default function WebUntis({ user, config, fetchData, router }) {
               />
             </div>
             <div className="space-y-2">
-              <Label>
+              <Label
+                className={
+                  config.webuntis.password_configured ? "" : "text-red-600"
+                }
+              >
                 Password
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <span tabIndex={0}>
-                      <Info className="h-3 w-3 text-muted-foreground cursor-pointer" />
+                      <Info
+                        className={
+                          "h-3 w-3 cursor-pointer" +
+                          (config.webuntis.password_configured
+                            ? " text-muted-foreground"
+                            : " text-red-500 animate-spin")
+                        }
+                      />
                     </span>
                   </TooltipTrigger>
                   <TooltipContent>your WebUntis login password</TooltipContent>

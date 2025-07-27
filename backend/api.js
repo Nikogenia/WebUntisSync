@@ -25,7 +25,16 @@ import { streamListeners, loadLogs } from "./logs.js";
 import { refreshUser } from "./index.js";
 
 export const app = express();
-let tokens = [];
+let tokens = new Map();
+
+setInterval(() => {
+  const now = Date.now();
+  for (const [token, metadata] of tokens.entries()) {
+    if (now - metadata.createdAt > 3 * 60 * 60 * 1000) {
+      tokens.delete(token);
+    }
+  }
+}, 60 * 1000);
 
 app.set("trust proxy", apiConfig.proxy);
 
@@ -46,7 +55,7 @@ app.get(
     try {
       let token = req.cookies.token || req.headers.authorization?.split(" ")[1];
       if (token) {
-        if (tokens.includes(token)) {
+        if (tokens.has(token)) {
           if (
             await new Promise((resolve) => {
               jwt.verify(token, apiConfig.token_secret, (err, user) => {
@@ -98,7 +107,7 @@ app.post(
     try {
       let token = req.cookies.token || req.headers.authorization?.split(" ")[1];
       if (token) {
-        if (tokens.includes(token)) {
+        if (tokens.has(token)) {
           if (
             await new Promise((resolve) => {
               jwt.verify(token, apiConfig.token_secret, (err, user) => {
@@ -150,7 +159,11 @@ app.post(
       }
 
       token = generateToken(username);
-      tokens.push(token);
+      tokens.set(token, {
+        username: username,
+        createdAt: Date.now(),
+        isRefresh: false,
+      });
 
       res.cookie("token", token, {
         httpOnly: true,
@@ -174,7 +187,7 @@ app.post(
 app.delete("/api/auth", authenticate, (req, res) => {
   console.info("[api]", "User", req.username, "logged out");
 
-  tokens = tokens.filter((t) => t !== req.token);
+  tokens.delete(req.token);
 
   res.clearCookie("token", {
     httpOnly: true,
@@ -302,8 +315,28 @@ app.put(
       req.user.fullname = newConfig.fullname || req.user.fullname;
       req.user.active =
         newConfig.active !== undefined ? newConfig.active : req.user.active;
-      req.user.webuntis = newConfig.webuntis || req.user.webuntis;
-      req.user.google = newConfig.google || req.user.google;
+      req.user.webuntis = {
+        ...req.user.webuntis,
+        server: newConfig.webuntis?.server || req.user.webuntis.server,
+        school: newConfig.webuntis?.school || req.user.webuntis.school,
+        username: newConfig.webuntis?.username || req.user.webuntis.username,
+      };
+      req.user.google = {
+        ...req.user.google,
+        calendarId: newConfig.google?.calendarId || req.user.google.calendarId,
+        examColor: newConfig.google?.examColor || req.user.google.examColor,
+        updatedColor:
+          newConfig.google?.updatedColor || req.user.google.updatedColor,
+        cancelledColor:
+          newConfig.google?.cancelledColor || req.user.google.cancelledColor,
+        homeworkColor:
+          newConfig.google?.homeworkColor || req.user.google.homeworkColor,
+        messageOfTheDayColor:
+          newConfig.google?.messageOfTheDayColor ||
+          req.user.google.messageOfTheDayColor,
+        holidayColor:
+          newConfig.google?.holidayColor || req.user.google.holidayColor,
+      };
       req.user.refresh =
         newConfig.refresh !== undefined ? newConfig.refresh : req.user.refresh;
       req.user.refreshProfile = await getRefreshProfile(req.user);
@@ -555,9 +588,17 @@ app.get(
 );
 
 function generateToken(username) {
-  return jwt.sign({ name: username }, apiConfig.token_secret, {
-    expiresIn: "3h",
-  });
+  return jwt.sign(
+    {
+      name: username,
+      iat: Math.floor(Date.now() / 1000),
+      jti: Math.random().toString(36).substring(2),
+    },
+    apiConfig.token_secret,
+    {
+      expiresIn: "3h",
+    }
+  );
 }
 
 function authenticate(req, res, next) {
@@ -565,11 +606,11 @@ function authenticate(req, res, next) {
 
   if (!token) return res.sendStatus(401);
 
-  if (!tokens.includes(token)) return res.sendStatus(403);
+  if (!tokens.has(token)) return res.sendStatus(403);
 
   jwt.verify(token, apiConfig.token_secret, (err, user) => {
     if (err) {
-      tokens = tokens.filter((t) => t !== token);
+      tokens.delete(token);
       return res.sendStatus(403);
     }
     req.username = user.name;
@@ -581,20 +622,28 @@ function authenticate(req, res, next) {
 
 function refresh(req, res, next) {
   const token = req.cookies.token || req.headers.authorization?.split(" ")[1];
-
-  tokens = tokens.filter((t) => t !== token);
-
   jwt.verify(token, apiConfig.token_secret, (err, user) => {
     if (!err) {
       const newToken = generateToken(user.name);
-      tokens.push(newToken);
-      res.cookie("token", newToken, {
-        httpOnly: true,
-        secure: apiConfig.https,
-        sameSite: "lax",
-        maxAge: 3 * 60 * 60 * 1000,
-      });
-      req.token = newToken;
+      if (newToken !== token) {
+        tokens.set(newToken, {
+          username: user.name,
+          createdAt: Date.now(),
+          isRefresh: true,
+        });
+        setTimeout(() => {
+          tokens.delete(token);
+        }, 10000);
+        res.cookie("token", newToken, {
+          httpOnly: true,
+          secure: apiConfig.https,
+          sameSite: "lax",
+          maxAge: 3 * 60 * 60 * 1000,
+        });
+        req.token = newToken;
+      } else {
+        req.token = token;
+      }
     }
     next();
   });

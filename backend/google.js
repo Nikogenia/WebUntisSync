@@ -152,7 +152,8 @@ export async function getCalendar(username, api) {
     if (!user.google.calendarId) {
       console.error(`[${username}]`, "No calendar ID configured for user");
       return {
-        error: "Error loading Google calendar: No calendar ID configured!",
+        error:
+          "Error loading Google calendar: No calendar ID configured! Press the create button first",
       };
     }
 
@@ -172,7 +173,8 @@ export async function getCalendar(username, api) {
   } catch (err) {
     console.error(`[${username}]`, "Error loading calendar:", err);
     return {
-      error: "Error loading Google calendar: Likely an invalid calendar ID!",
+      error:
+        "Error loading Google calendar: Likely an invalid calendar ID! Only calendars created by WebUntis Sync can be used",
     };
   }
 }

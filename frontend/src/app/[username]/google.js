@@ -460,12 +460,21 @@ export default function Google({ user, config, fetchData, router }) {
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">
-            <Label>
+            <Label
+              className={config.google?.oauth_configured ? "" : "text-red-600"}
+            >
               OAuth2 API Access
               <Tooltip>
                 <TooltipTrigger asChild>
                   <span tabIndex={0}>
-                    <Info className="h-3 w-3 text-muted-foreground cursor-pointer" />
+                    <Info
+                      className={
+                        "h-3 w-3 cursor-pointer" +
+                        (config.google?.oauth_configured
+                          ? " text-muted-foreground"
+                          : " text-red-500 animate-spin")
+                      }
+                    />
                   </span>
                 </TooltipTrigger>
                 <TooltipContent>
@@ -553,12 +562,22 @@ export default function Google({ user, config, fetchData, router }) {
           </div>
           <form onSubmit={handleUpdateConfig} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="calendarId">
+              <Label
+                htmlFor="calendarId"
+                className={calendarId ? "" : "text-red-600"}
+              >
                 Calendar ID
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <span tabIndex={0}>
-                      <Info className="h-3 w-3 text-muted-foreground cursor-pointer" />
+                      <Info
+                        className={
+                          "h-3 w-3 cursor-pointer" +
+                          (calendarId
+                            ? " text-muted-foreground"
+                            : " text-red-500 animate-spin")
+                        }
+                      />
                     </span>
                   </TooltipTrigger>
                   <TooltipContent>
