@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { LogOut } from "lucide-react";
@@ -45,6 +45,27 @@ export default function Dashboard({ params }) {
     }
   };
 
+  const scrollToLogs = useCallback(() => {
+    if (window.innerWidth < 1024 && rightColumn.current) {
+      setTimeout(() => {
+        try {
+          rightColumn.current.scrollIntoView({
+            behavior: "smooth",
+            block: "start",
+            inline: "nearest",
+          });
+        } catch (error) {
+          const elementTop = rightColumn.current.offsetTop;
+          const headerHeight = 64;
+          window.scrollTo({
+            top: elementTop - headerHeight,
+            behavior: "smooth",
+          });
+        }
+      }, 100);
+    }
+  }, [rightColumn]);
+
   useEffect(() => {
     if (hasInitialized.current) return;
     hasInitialized.current = true;
@@ -55,7 +76,7 @@ export default function Dashboard({ params }) {
     if (leftColumn.current && rightColumn.current) {
       rightColumn.current.style.height = `${leftColumn.current.offsetHeight}px`;
       if (window.innerWidth < 1024) {
-        rightColumn.current.style.height = "80vh";
+        rightColumn.current.style.height = "75vh";
       }
     }
   };
@@ -165,6 +186,7 @@ export default function Dashboard({ params }) {
           config={config}
           fetchData={fetchData}
           router={router}
+          scrollToLogs={scrollToLogs}
         />
         <div className="flex flex-col lg:flex-row gap-6 lg:items-start">
           <div ref={leftColumn} className="lg:w-1/2 space-y-6">

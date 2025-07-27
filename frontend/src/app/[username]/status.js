@@ -31,7 +31,13 @@ import {
 } from "@/components/ui/select";
 import { toast } from "sonner";
 
-export default function Status({ user, config, fetchData, router }) {
+export default function Status({
+  user,
+  config,
+  fetchData,
+  router,
+  scrollToLogs,
+}) {
   const configured =
     config.webuntis?.server &&
     config.webuntis?.school &&
@@ -57,6 +63,9 @@ export default function Status({ user, config, fetchData, router }) {
       if (response.status === 200) {
         toast.success(`Triggered ${full_refresh ? "full" : "quick"} sync`);
         fetchData();
+        if (scrollToLogs) {
+          setTimeout(() => scrollToLogs(), 100);
+        }
         return;
       }
       toast.error("Failed to trigger sync!");

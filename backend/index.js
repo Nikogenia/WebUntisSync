@@ -19,13 +19,21 @@ import {
 import { log } from "./logs.js";
 
 const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-const quickTimeout = 60 * 1000; // 1 minute
+const quickTimeout = 15 * 1000; // 15 seconds
 const fullTimeout = 10 * 60 * 1000; // 10 minutes
+const queued = new Map();
 
 async function cycle() {
   await loadConfig();
+  let timeout = 0;
   for (const [username, user] of Object.entries(users)) {
     if (!user.active) continue;
+    if (queued.has(username)) {
+      if (new Date() - queued.get(username) < quickTimeout) {
+        continue;
+      }
+      queued.delete(username);
+    }
 
     const rp = user.refreshProfile;
     const now = new Date();
@@ -45,7 +53,10 @@ async function cycle() {
         username,
         "triggered by midnight"
       );
-      refreshUser(username, user, true);
+      queued.set(username, new Date() + timeout);
+      setTimeout(() => refreshUser(username, user, true), timeout);
+      timeout += 5 * 60 * 1000; // 5 minutes
+      continue;
     }
 
     for (const time of refreshTimes) {
@@ -66,7 +77,10 @@ async function cycle() {
           "at",
           time
         );
-        refreshUser(username, user);
+        queued.set(username, new Date() + timeout);
+        setTimeout(() => refreshUser(username, user), timeout);
+        timeout += 8 * 1000; // 8 seconds
+        break;
       }
     }
   }

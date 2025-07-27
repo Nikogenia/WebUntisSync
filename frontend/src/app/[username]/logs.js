@@ -237,6 +237,9 @@ export default function Logs({ user, router }) {
                   <span>Please configure and sync your account</span>
                 </div>
               )}
+              {logs && logs.length > 0 && logs[0].type === "info" && (
+                <span className="loader"></span>
+              )}
               {logs.map(
                 (log) =>
                   log.type !== "start" && (

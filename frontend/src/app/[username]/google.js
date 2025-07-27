@@ -249,7 +249,7 @@ export default function Google({ user, config, fetchData, router }) {
             disabled={!config.google.oauth_configured}
           >
             <Plus className="h-4 w-4" />
-            Create
+            Create Calendar
           </Button>
         </DialogTrigger>
         <DialogContent className="sm:max-w-[425px]">
@@ -599,14 +599,14 @@ export default function Google({ user, config, fetchData, router }) {
                 </Tooltip>
               </Label>
               <div className="flex space-x-3">
+                <CalendarDialog />
                 <Input
                   id="calendarId"
                   value={calendarId}
                   onChange={(e) => setCalendarId(e.target.value)}
-                  placeholder="...@group.calendar.google.com"
+                  placeholder="...@group.calendar.google.com (use button to the left to generate)"
                   disabled={!config.google.oauth_configured}
                 />
-                <CalendarDialog />
               </div>
             </div>
             <div className="space-y-4">
