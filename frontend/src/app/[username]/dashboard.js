@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -184,6 +185,13 @@ export default function Dashboard({ params }) {
             <Logs user={username} router={router} />
           </div>
         </div>
+      </div>
+      <div className="text-sm text-center text-muted-foreground mb-6">
+        <span className="font-medium">© 2025 Nikogenia</span>
+        <span className="text-gray-500"> | </span>
+        <Link href="/privacy" className="hover:text-gray-700">
+          Privacy Policy
+        </Link>
       </div>
     </div>
   );

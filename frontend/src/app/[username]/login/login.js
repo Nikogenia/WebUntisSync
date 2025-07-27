@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -142,7 +143,7 @@ export default function Login({ params }) {
   };
 
   return (
-    <div className="flex h-svh items-center justify-center bg-gray-50 p-4">
+    <div className="flex flex-col h-svh items-center justify-center bg-gray-50 p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
           <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-primary/10">
@@ -261,6 +262,13 @@ export default function Login({ params }) {
           </form>
         </CardContent>
       </Card>
+      <div className="text-sm text-center text-muted-foreground mt-8">
+        <span className="font-medium">© 2025 Nikogenia</span>
+        <span className="text-gray-500"> | </span>
+        <Link href="/privacy" className="hover:text-gray-700">
+          Privacy Policy
+        </Link>
+      </div>
     </div>
   );
 }

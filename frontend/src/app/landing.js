@@ -9,6 +9,7 @@ import {
   CardDescription,
 } from "@/components/ui/card";
 import { Mail, Eye } from "lucide-react";
+import Link from "next/link";
 
 const backgroundImages = [
   "/background1.png",
@@ -93,7 +94,7 @@ export default function Landing({ params }) {
                 🔒 Secure and reliable data handling
               </p>
             </div>
-            <div className="space-y-4 pt-4">
+            <div className="space-y-4 pt-2">
               <div className="flex items-center justify-center space-x-2 text-base md:text-lg">
                 <Mail className="w-5 h-5" />
                 <span className="font-medium hidden md:inline">Contact</span>
@@ -110,6 +111,13 @@ export default function Landing({ params }) {
                   📧 Please use the link you received via email to access your
                   personal control panel
                 </p>
+              </div>
+              <div className="text-sm text-center text-muted-foreground">
+                <span className="font-medium">© 2025 Nikogenia</span>
+                <span className="text-gray-500"> | </span>
+                <Link href="/privacy" className="hover:text-gray-700">
+                  Privacy Policy
+                </Link>
               </div>
             </div>
           </CardContent>
