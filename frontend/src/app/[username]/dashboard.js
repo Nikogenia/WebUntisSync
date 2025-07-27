@@ -131,7 +131,7 @@ export default function Dashboard({ params }) {
   return (
     <div className="flex min-h-screen flex-col">
       <header className="sticky top-0 z-10 flex h-16 items-center justify-between border-b bg-background px-4 md:px-6">
-        <div className="flex items-center gap-3">
+        <Link href="/" className="flex items-center gap-3">
           <div className="h-10 w-10 rounded-full bg-primary/10 hidden sm:flex items-center justify-center">
             <img src="/logo.png" alt="WebUntis Sync Logo" className="h-8 w-8" />
           </div>
@@ -143,7 +143,7 @@ export default function Dashboard({ params }) {
               by Nikogenia
             </p>
           </div>
-        </div>
+        </Link>
         <div className="flex-1 flex items-center gap-2 sm:gap-4">
           <span className="flex-1 text-sm text-end text-muted-foreground">
             {config?.fullname}

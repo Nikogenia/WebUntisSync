@@ -146,13 +146,16 @@ export default function Login({ params }) {
     <div className="flex flex-col h-svh items-center justify-center bg-gray-50 p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
-          <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-primary/10">
+          <Link
+            href="/"
+            className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-primary/10"
+          >
             <img
               src="/logo.png"
               alt="WebUntis Sync Logo"
               className="h-16 w-16"
             />
-          </div>
+          </Link>
           <CardTitle className="text-2xl font-semibold">
             WebUntis Sync
           </CardTitle>
