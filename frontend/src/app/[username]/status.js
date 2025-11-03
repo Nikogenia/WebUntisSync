@@ -67,7 +67,7 @@ export default function Status({
         body: JSON.stringify({
           start,
           end,
-          noRemoval,
+          no_removal: noRemoval,
         }),
         headers: {
           "Content-Type": "application/json",
