@@ -25,7 +25,8 @@ const SCOPES = ["https://www.googleapis.com/auth/calendar.app.created"];
 const SKIPPED = 0;
 const CREATED = 1;
 const UPDATED = 2;
-const ERROR = 3;
+const DELETED = 3;
+const ERROR = 4;
 
 export function generateAuthUrl() {
   const oauth2Client = new google.auth.OAuth2(
@@ -225,19 +226,21 @@ export async function getColors(username, api) {
 function matchEvent(name, eventId, existing, target) {
   let update = false;
   let description = existing.description || "";
-  if (
-    !existing.extendedProperties ||
-    !existing.extendedProperties.private ||
-    !existing.extendedProperties.private.untisversion
-  ) {
+  const untisversion =
+    existing.extendedProperties?.shared?.untisversion ||
+    existing.extendedProperties?.private?.untisversion;
+  if (!untisversion) {
     console.warn(
       `[${name}]`,
       "Event",
       eventId,
-      "has unspecified version, overwriting to version 1 with potential data loss"
+      "has unspecified version, overwriting to version 2 with potential data loss"
     );
     update = true;
-  } else if (existing.extendedProperties.private.untisversion === "1") {
+  } else if (untisversion === "1") {
+    description = description.substring(0, description.length - 52);
+    update = true;
+  } else if (untisversion === "2") {
     description = description.substring(0, description.length - 52);
   } else {
     console.warn(
@@ -245,8 +248,8 @@ function matchEvent(name, eventId, existing, target) {
       "Event",
       eventId,
       "has unknown version",
-      existing.extendedProperties.private.untisversion,
-      ", overwriting to version 1 with potential data loss"
+      untisversion,
+      ", overwriting to version 2 with potential data loss"
     );
     update = true;
   }
@@ -286,19 +289,17 @@ async function listEvents(
   name,
   api,
   calendarId,
-  timeMin,
-  timeMax,
+  filter,
   timeOut,
   pageToken = undefined
 ) {
   try {
     const res = await api.events.list({
       calendarId: calendarId,
-      timeMin: timeMin,
-      timeMax: timeMax,
       pageToken: pageToken,
       singleEvents: true,
       orderBy: "startTime",
+      ...filter,
     });
     if (!res.data.nextPageToken) {
       return res.data.items;
@@ -309,88 +310,32 @@ async function listEvents(
         name,
         api,
         calendarId,
-        timeMin,
-        timeMax,
+        filter,
         1,
         res.data.nextPageToken
       )),
     ];
   } catch (err) {
+    if (err.code !== 403 && err.code !== 429) {
+      console.error(`[${name}]`, "Error listing events:", err);
+      return ERROR;
+    }
     if (timeOut > 15 * 60) {
-      console.error(
-        `[${name}]`,
-        "Error or too many retries for listing events:",
-        err
-      );
+      console.error(`[${name}]`, "Too many retries for listing events:", err);
       return ERROR;
     }
     await new Promise((resolve) => setTimeout(resolve, timeOut * 1000));
-    return await listEvents(
-      name,
-      api,
-      calendarId,
-      timeMin,
-      timeMax,
-      timeOut * 1.5
-    );
-  }
-}
-
-async function uploadEvent(
-  name,
-  api,
-  calendarId,
-  eventId,
-  properties,
-  timeOut
-) {
-  try {
-    const res = await api.events.get({
-      calendarId: calendarId,
-      eventId: eventId,
-    });
-
-    const event = {
-      ...res.data,
-      ...properties,
-      extendedProperties: {
-        private: {
-          untisversion: "1",
-        },
-      },
-    };
-
-    if (matchEvent(name, eventId, res.data, event)) {
-      console.info(`[${name}]`, "Event", eventId, "already exists");
-      return SKIPPED;
-    }
-
-    return await updateEvent(name, api, calendarId, eventId, event, 1);
-  } catch (err) {
-    if (err.code === 404) {
-      return await createEvent(name, api, calendarId, eventId, properties, 1);
-    }
-    if (err.code === 403 || err.code === 429) {
-      if (timeOut > 15 * 60) {
-        console.error(
-          `[${name}]`,
-          "Too many retries for uploading event:",
-          err
-        );
-        return ERROR;
-      }
-      await new Promise((resolve) => setTimeout(resolve, timeOut * 1000));
-      return await uploadEvent(
+    return [
+      ...res.data.items,
+      ...(await listEvents(
         name,
         api,
         calendarId,
-        eventId,
-        properties,
-        timeOut * 1.5
-      );
-    }
-    console.error(`[${name}]`, "Error uploading event:", err);
-    return ERROR;
+        filter,
+        timeOut * 1.5,
+        res.data.nextPageToken
+      )),
+    ];
   }
 }
 
@@ -417,23 +362,23 @@ async function updateEvent(
     console.info(`[${name}]`, "Updated event", eventId);
     return UPDATED;
   } catch (err) {
-    if (err.code === 403 || err.code === 429) {
-      if (timeOut > 15 * 60) {
-        console.error(`[${name}]`, "Too many retries for updating event:", err);
-        return ERROR;
-      }
-      await new Promise((resolve) => setTimeout(resolve, timeOut * 1000));
-      return await updateEvent(
-        name,
-        api,
-        calendarId,
-        eventId,
-        properties,
-        timeOut * 1.5
-      );
+    if (err.code !== 403 && err.code !== 429) {
+      console.error(`[${name}]`, "Error updating event:", err);
+      return ERROR;
     }
-    console.error(`[${name}]`, "Error updating event:", err);
-    return ERROR;
+    if (timeOut > 15 * 60) {
+      console.error(`[${name}]`, "Too many retries for updating event:", err);
+      return ERROR;
+    }
+    await new Promise((resolve) => setTimeout(resolve, timeOut * 1000));
+    return await updateEvent(
+      name,
+      api,
+      calendarId,
+      eventId,
+      properties,
+      timeOut * 1.5
+    );
   }
 }
 
@@ -454,202 +399,222 @@ async function createEvent(
           properties.description +
           `\n\n<i>Synced with WebUntis at ${formatToLocalISO(new Date())}</i>`,
         id: eventId,
-        extendedProperties: {
-          private: {
-            untisversion: "1",
-          },
-        },
       },
     });
 
     console.info(`[${name}]`, "Created new event", eventId);
     return CREATED;
   } catch (err) {
-    if (err.code === 403 || err.code === 429) {
-      if (timeOut > 15 * 60) {
-        console.error(`[${name}]`, "Too many retries for creating event:", err);
-        return ERROR;
-      }
-      await new Promise((resolve) => setTimeout(resolve, timeOut * 1000));
-      return await createEvent(
-        name,
-        api,
-        calendarId,
-        eventId,
-        properties,
-        timeOut * 1.5
+    if (err.code === 409) {
+      console.error(
+        `[${name}]`,
+        "Event ID conflict when creating event:",
+        eventId
       );
+      return ERROR;
     }
-    console.error(`[${name}]`, "Error creating event:", err);
-    return ERROR;
-  }
-}
-
-export async function uploadHolidays(
-  name,
-  api,
-  calendarId,
-  holidays,
-  queue,
-  stats,
-  colors
-) {
-  for (const holiday of holidays) {
-    const endDate = new Date(holiday.end);
-    endDate.setDate(endDate.getDate() + 1);
-    const event = {
-      summary: holiday.name,
-      description: `<b>Holidays</b>\n${holiday.days}`,
-      start: {
-        date: formatToLocalISODate(holiday.start),
-      },
-      end: {
-        date: formatToLocalISODate(endDate),
-      },
-      transparency: "transparent",
-      colorId: colors.holidayColor || "4",
-    };
-    console.info(
-      `[${name}]`,
-      `Uploading holiday (${holiday.id})`,
-      event.summary,
-      "from",
-      formatToLocalISODate(holiday.start),
-      "to",
-      formatToLocalISODate(holiday.end)
+    if (err.code !== 403 && err.code !== 429) {
+      console.error(`[${name}]`, "Error creating event:", err);
+      return ERROR;
+    }
+    if (timeOut > 15 * 60) {
+      console.error(`[${name}]`, "Too many retries for creating event:", err);
+      return ERROR;
+    }
+    await new Promise((resolve) => setTimeout(resolve, timeOut * 1000));
+    return await createEvent(
+      name,
+      api,
+      calendarId,
+      eventId,
+      properties,
+      timeOut * 1.5
     );
-    queue(async () => {
-      switch (
-        await uploadEvent(
-          name,
-          api,
-          calendarId,
-          `untisholi${holiday.id}`,
-          event,
-          1
-        )
-      ) {
-        case SKIPPED:
-          stats.skipped++;
-          break;
-        case CREATED:
-          stats.created++;
-          break;
-        case UPDATED:
-          stats.updated++;
-          break;
-        case ERROR:
-          stats.errors++;
-          break;
-      }
-    });
   }
 }
 
-export async function uploadNews(
-  name,
-  api,
-  calendarId,
-  news,
-  queue,
-  stats,
-  colors
-) {
-  for (const day of news) {
-    for (const message of day.messages) {
-      let title = message.subject;
-      if (message.subject === "") {
-        title =
-          message.text.length < 30
-            ? message.text
-            : message.text.substring(0, 28) + "...";
+async function deleteEvent(name, api, calendarId, eventId, timeOut) {
+  try {
+    await api.events.delete({
+      calendarId: calendarId,
+      eventId: eventId,
+    });
+
+    console.info(`[${name}]`, "Deleted event", eventId);
+    return DELETED;
+  } catch (err) {
+    if (err.code !== 403 && err.code !== 429) {
+      console.error(`[${name}]`, "Error deleting event:", err);
+      return ERROR;
+    }
+    if (timeOut > 15 * 60) {
+      console.error(`[${name}]`, "Too many retries for deleting event:", err);
+      return ERROR;
+    }
+    await new Promise((resolve) => setTimeout(resolve, timeOut * 1000));
+    return await deleteEvent(name, api, calendarId, eventId, timeOut * 1.5);
+  }
+}
+
+export async function migrateEvents(name, api, calendarId, queue, stats) {
+  const migrate1 = await listEvents(
+    name,
+    api,
+    calendarId,
+    {
+      privateExtendedProperty: "untisversion=1",
+    },
+    1
+  );
+  const migrate2 = await listEvents(
+    name,
+    api,
+    calendarId,
+    {
+      privateExtendedProperty: "untisversion=2",
+    },
+    1
+  );
+  if (migrate1 === ERROR || migrate2 === ERROR) {
+    console.error(
+      `[${name}]`,
+      "Error listing events, skipping event migration"
+    );
+    stats.errors += 1;
+    return;
+  }
+  const events = {
+    ...Object.fromEntries(
+      migrate1.map((e) => [e.id, [e, "version 1 to 2, private to shared"]])
+    ),
+    ...Object.fromEntries(
+      migrate2.map((e) => [e.id, [e, "private to shared"]])
+    ),
+  };
+  if (Object.keys(events).length === 0) {
+    console.info(`[${name}]`, "No events to migrate found");
+    return;
+  }
+  for (const [eventId, [event, migrationType]] of Object.entries(events)) {
+    try {
+      let type = "lesson";
+      if (eventId.startsWith("untisholi")) {
+        type = "holiday";
+      } else if (eventId.startsWith("untismotd")) {
+        type = "motd";
       }
-      const event = {
-        summary: title,
-        description: `<b>Message of the day</b>\n${message.text}`,
-        start: {
-          date: formatToLocalISODate(day.date),
+      const target = {
+        ...event,
+        description: event.description.substring(
+          0,
+          event.description.length - 52
+        ),
+        extendedProperties: {
+          shared: {
+            untisversion: "2",
+            untistype: type,
+          },
         },
-        end: {
-          date: formatToLocalISODate(day.date),
-        },
-        transparency: "transparent",
-        colorId: colors.messageOfTheDayColor || "2",
       };
+      const startTime = event.start.dateTime
+        ? formatToLocalISO(new Date(event.start.dateTime))
+        : formatToLocalISODate(new Date(event.start.date));
+      const endTime = event.end.dateTime
+        ? formatToLocalISO(new Date(event.end.dateTime))
+        : formatToLocalISODate(new Date(event.end.date));
       console.info(
         `[${name}]`,
-        `Uploading news (${message.id})`,
-        event.summary,
-        "on",
-        formatToLocalISODate(day.date)
+        `Migrating event (${eventId})`,
+        target.summary,
+        "from",
+        startTime,
+        "to",
+        endTime,
+        `(${migrationType})`
       );
       queue(async () => {
-        switch (
-          await uploadEvent(
-            name,
-            api,
-            calendarId,
-            `untismotd${day.date.getMonth() + 1}m${day.date.getDate()}d${
-              message.id
-            }`,
-            event,
-            2
-          )
+        if (
+          (await updateEvent(name, api, calendarId, eventId, target, 1)) ===
+          UPDATED
         ) {
-          case SKIPPED:
-            stats.skipped++;
-            break;
-          case CREATED:
-            stats.created++;
-            break;
-          case UPDATED:
-            stats.updated++;
-            break;
-          case ERROR:
-            stats.errors++;
-            break;
+          stats.updated++;
+        } else {
+          stats.errors++;
         }
       });
+    } catch (err) {
+      console.error(`[${name}]`, "Unexpected error migrating lesson:", err);
     }
   }
 }
 
-export async function uploadLessons(
+export async function upload(
   name,
   api,
   calendarId,
-  lessons,
+  elements,
+  type,
   queue,
   stats,
   colors,
-  startTime,
-  endTime
+  noRemoval,
+  start = undefined,
+  end = undefined
 ) {
-  const events = await listEvents(name, api, calendarId, startTime, endTime, 1);
+  const events = await listEvents(
+    name,
+    api,
+    calendarId,
+    {
+      timeMin: start ? start.toISOString() : undefined,
+      timeMax: end ? end.toISOString() : undefined,
+      sharedExtendedProperty: ["untisversion=2", `untistype=${type}`],
+    },
+    1
+  );
   if (events === ERROR) {
-    console.error(`[${name}]`, "Error listing events, skipping lesson upload");
-    stats.errors += lessons.length;
-    return [];
+    console.error(`[${name}]`, `Error listing events, skipping ${type} upload`);
+    stats.errors += elements.length;
+    return;
   }
-  for (const lesson of lessons) {
+
+  const toDelete = events.map((event) => event.id);
+  for (const element of elements) {
     try {
-      const eventId = `untisless${lesson.id}`;
+      let eventId = `untisless${element.id}`;
+      let fields = {};
+      if (type === "lesson") {
+        fields = await generateLessonFields(element, colors);
+      } else if (type === "holiday") {
+        eventId = `untisholi${element.id}`;
+        fields = await generateHolidayFields(element, colors);
+      } else if (type === "motd") {
+        eventId = `untismotd${
+          element.start.getMonth() + 1
+        }m${element.start.getDate()}d${element.id}`;
+        fields = await generateNewsFields(element, colors);
+      }
+
+      const index = toDelete.indexOf(eventId);
+      if (index !== -1) {
+        toDelete.splice(index, 1);
+      }
       let skipped_or_updated = false;
+
       for (const existing of events) {
         if (existing.id !== eventId) continue;
         skipped_or_updated = true;
         const target = {
           ...existing,
-          start: {
-            dateTime: lesson.start.toISOString(),
-          },
-          end: {
-            dateTime: lesson.end.toISOString(),
-          },
-          ...(await generateFields(lesson, colors)),
+          description: existing.description.substring(
+            0,
+            existing.description.length - 52
+          ),
+          ...fields,
           extendedProperties: {
-            private: {
-              untisversion: "1",
+            shared: {
+              untisversion: "2",
+              untistype: type,
             },
           },
         };
@@ -660,12 +625,12 @@ export async function uploadLessons(
         }
         console.info(
           `[${name}]`,
-          `Update lesson (${lesson.id})`,
+          `Updating ${type} (${element.id})`,
           target.summary,
           "from",
-          formatToLocalISO(lesson.start),
+          formatToLocalISO(element.start),
           "to",
-          formatToLocalISO(lesson.end)
+          formatToLocalISO(element.end)
         );
         queue(async () => {
           if (
@@ -681,22 +646,22 @@ export async function uploadLessons(
       }
       if (skipped_or_updated) continue;
       const event = {
-        start: {
-          dateTime: lesson.start.toISOString(),
+        ...fields,
+        extendedProperties: {
+          shared: {
+            untisversion: "2",
+            untistype: type,
+          },
         },
-        end: {
-          dateTime: lesson.end.toISOString(),
-        },
-        ...(await generateFields(lesson, colors)),
       };
       console.info(
         `[${name}]`,
-        `Creating lesson (${lesson.id})`,
+        `Creating ${type} (${element.id})`,
         event.summary,
         "from",
-        formatToLocalISO(lesson.start),
+        formatToLocalISO(element.start),
         "to",
-        formatToLocalISO(lesson.end)
+        formatToLocalISO(element.end)
       );
       queue(async () => {
         if (
@@ -709,12 +674,82 @@ export async function uploadLessons(
         }
       });
     } catch (err) {
-      console.error(`[${name}]`, "Unexpected error uploading lesson:", err);
+      console.error(`[${name}]`, `Unexpected error uploading ${type}:`, err);
     }
+  }
+
+  if (noRemoval && toDelete.length > 0) {
+    console.info(
+      `[${name}]`,
+      `Skipping deletion of ${toDelete.length} removed ${type} events as configured`
+    );
+    return;
+  }
+  for (const eventId of toDelete) {
+    const event = events.find((e) => e.id === eventId);
+    const startTime = event.start.dateTime
+      ? formatToLocalISO(new Date(event.start.dateTime))
+      : formatToLocalISODate(new Date(event.start.date));
+    const endTime = event.end.dateTime
+      ? formatToLocalISO(new Date(event.end.dateTime))
+      : formatToLocalISODate(new Date(event.end.date));
+    console.info(
+      `[${name}]`,
+      `Deleting removed ${type} (${eventId})`,
+      event.summary,
+      "from",
+      startTime,
+      "to",
+      endTime
+    );
+    queue(async () => {
+      if ((await deleteEvent(name, api, calendarId, eventId, 1)) === DELETED) {
+        stats.deleted++;
+      } else {
+        stats.errors++;
+      }
+    });
   }
 }
 
-async function generateFields(lesson, colors) {
+async function generateHolidayFields(holiday, colors) {
+  return {
+    summary: holiday.name,
+    description: `<b>Holidays</b>\n${holiday.days}`,
+    start: {
+      date: formatToLocalISODate(holiday.start),
+    },
+    end: {
+      date: formatToLocalISODate(holiday.end),
+    },
+    transparency: "transparent",
+    colorId: colors.holidayColor || "4",
+  };
+}
+
+async function generateNewsFields(message, colors) {
+  let title = message.subject;
+  if (message.subject === "") {
+    title =
+      message.text.length < 30
+        ? message.text
+        : message.text.substring(0, 28) + "...";
+  }
+  return {
+    summary: title,
+    description: `<b>Message of the day</b>\n${message.text}`,
+    start: {
+      date: formatToLocalISODate(message.start),
+    },
+    end: {
+      date: formatToLocalISODate(message.end),
+    },
+    transparency: "transparent",
+    colorId: colors.messageOfTheDayColor || "2",
+  };
+}
+
+async function generateLessonFields(lesson, colors) {
   let title = "";
   let description = "";
   let color;
@@ -839,6 +874,12 @@ async function generateFields(lesson, colors) {
   }
 
   const fields = {
+    start: {
+      dateTime: lesson.start.toISOString(),
+    },
+    end: {
+      dateTime: lesson.end.toISOString(),
+    },
     summary: title,
     description: description,
     location: "",

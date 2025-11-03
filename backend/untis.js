@@ -7,8 +7,11 @@ export async function fetchWebUntis(
   credentials,
   password,
   execution,
-  fullRefresh
+  start,
+  end
 ) {
+  const logName = `${username}/${execution}`;
+
   try {
     const untis = new WebUntis(
       credentials.school,
@@ -16,8 +19,6 @@ export async function fetchWebUntis(
       password,
       credentials.server
     );
-
-    const logName = `${username}/${execution}`;
 
     log(
       username,
@@ -27,17 +28,7 @@ export async function fetchWebUntis(
     );
     await untis.login();
 
-    const now = new Date();
-    let start = new Date(
-      now.getFullYear(),
-      now.getMonth(),
-      now.getDate() - (now.getDay() === 0 ? 6 : now.getDay() - 1),
-      0,
-      0,
-      0,
-      0
-    );
-
+    // determine schoolyear
     let schoolyear = await untis.getCurrentSchoolyear();
     if (
       !schoolyear ||
@@ -63,31 +54,61 @@ export async function fetchWebUntis(
             "No school year data found! Check WebUntis, when data is available there, contact support",
         };
       }
-      start = new Date(new Date(schoolyear.startDate).setHours(0, 0, 0, 0));
     }
+    const startOfSchoolyear = new Date(
+      new Date(schoolyear.startDate).setHours(0, 0, 0, 0)
+    );
     const endOfSchoolyear = new Date(
       new Date(schoolyear.endDate).setHours(23, 59, 59, 999)
     );
 
-    let end = new Date(
-      start.getFullYear(),
-      start.getMonth(),
-      start.getDate() + 28 - 1,
-      23,
-      59,
-      59,
-      999
-    );
-
-    if (fullRefresh || end > endOfSchoolyear) {
+    // check for start/end bounds
+    if (start < startOfSchoolyear) {
+      start = startOfSchoolyear;
+    }
+    if (start > end) {
+      log(
+        username,
+        execution,
+        "info",
+        `End date ${end} is before start date, using default end date instead`
+      );
+      end = new Date(
+        start.getFullYear(),
+        start.getMonth(),
+        start.getDate() + 28 - 1,
+        23,
+        59,
+        59,
+        999
+      );
+    }
+    if (end > endOfSchoolyear) {
       end = endOfSchoolyear;
     }
 
+    // fetch
+    const { end: newsEnd, data: newsData } = await fetchNews(
+      logName,
+      untis,
+      start,
+      14
+    );
+    const news = [];
+    for (const day of newsData) {
+      for (const message of day.messages) {
+        news.push({
+          ...message,
+          start: day.date,
+          end: day.date,
+        });
+      }
+    }
     const data = {
       timetable: await fetchTimetable(logName, untis, start, end),
       holidays: await fetchHolidays(logName, untis),
-      news: await fetchNews(logName, untis, start, 14),
       homework: await fetchHomework(logName, untis, start, end),
+      news: news,
       exams: await fetchExams(logName, untis, start, end),
       subjects: await fetchSubjects(logName, untis),
       teachers: await fetchTeachers(logName, untis),
@@ -119,6 +140,7 @@ export async function fetchWebUntis(
       start: start,
       end: end,
       data: data,
+      newsEnd: newsEnd,
     };
   } catch (e) {
     return {
@@ -220,7 +242,8 @@ async function fetchHolidays(name, untis) {
   for (const holiday of rawData) {
     const start = WebUntis.convertUntisDate(holiday.startDate);
     const end = WebUntis.convertUntisDate(holiday.endDate);
-    const days = Math.floor((end - start) / (1000 * 60 * 60 * 24)) + 1;
+    end.setDate(end.getDate() + 1);
+    const days = Math.floor((end - start) / (1000 * 60 * 60 * 24));
     data.push({
       id: holiday.id,
       name: holiday.longName,
@@ -271,7 +294,7 @@ async function fetchNews(name, untis, start, days) {
     });
   }
 
-  return data;
+  return { end, data };
 }
 
 export async function generateLessons(data) {

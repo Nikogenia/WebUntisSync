@@ -492,7 +492,7 @@ export default function Google({ user, config, fetchData, router }) {
                 {config.google.oauth_configured && (
                   <Button
                     variant="outline"
-                    className="text-red-500 cursor-pointer"
+                    className="text-red-600 cursor-pointer"
                     onClick={handleRevokeAccess}
                   >
                     Revoke
@@ -520,7 +520,7 @@ export default function Google({ user, config, fetchData, router }) {
                         and authorize WebUntis Sync to create own calendars and
                         events.
                       </AlertDialogDescription>
-                      <AlertDialogDescription className="text-red-500">
+                      <AlertDialogDescription className="text-red-600">
                         WebUntis Sync won&apos;t be able to access your
                         calendars and events. Our service creates a new calendar
                         and only uses this one to create events. Your personal

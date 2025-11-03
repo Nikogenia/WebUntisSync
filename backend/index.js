@@ -9,27 +9,22 @@ import {
   encryptionKey,
 } from "./config.js";
 import { fetchWebUntis, generateLessons } from "./untis.js";
-import {
-  loadApi,
-  getCalendar,
-  uploadHolidays,
-  uploadNews,
-  uploadLessons,
-} from "./google.js";
+import { loadApi, getCalendar, migrateEvents, upload } from "./google.js";
 import { log } from "./logs.js";
 
 const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
 const quickTimeout = 15 * 1000; // 15 seconds
-const fullTimeout = 10 * 60 * 1000; // 10 minutes
+const longTimeout = 5 * 60 * 1000; // 5 minutes
 const queued = new Map();
 
 async function cycle() {
   await loadConfig();
   let timeout = 0;
+
   for (const [username, user] of Object.entries(users)) {
     if (!user.active) continue;
     if (queued.has(username)) {
-      if (new Date() - queued.get(username) < quickTimeout) {
+      if (new Date().getTime() - queued.get(username) < quickTimeout) {
         continue;
       }
       queued.delete(username);
@@ -46,16 +41,16 @@ async function cycle() {
       now >= refreshTime &&
       (!user.lastRefresh ||
         (user.lastRefresh < refreshTime &&
-          now - user.lastRefresh >= fullTimeout))
+          now - user.lastRefresh >= longTimeout))
     ) {
       console.info(
         "[cycle] Full refresh for user",
         username,
         "triggered by midnight"
       );
-      queued.set(username, new Date() + timeout);
-      setTimeout(() => refreshUser(username, user, true), timeout);
-      timeout += 5 * 60 * 1000; // 5 minutes
+      queued.set(username, new Date().getTime() + timeout);
+      setTimeout(() => refreshUser(username, user, null, "end"), timeout);
+      timeout += longTimeout;
       continue;
     }
 
@@ -77,41 +72,112 @@ async function cycle() {
           "at",
           time
         );
-        queued.set(username, new Date() + timeout);
+        queued.set(username, new Date().getTime() + timeout);
         setTimeout(() => refreshUser(username, user), timeout);
-        timeout += 8 * 1000; // 8 seconds
+        timeout += quickTimeout;
         break;
       }
     }
   }
 }
 
-export async function refreshUser(username, user, fullRefresh = false) {
+function parseStartEnd(customStart, customEnd) {
+  const now = new Date();
+
+  let start = new Date(customStart);
+  start.setHours(0, 0, 0, 0);
+  if (isNaN(start.getTime())) {
+    log(
+      username,
+      execution,
+      "info",
+      `Invalid custom start date ${customStart}, using start of week instead`
+    );
+  }
+  if (isNaN(start.getTime()) || !customStart) {
+    start = new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      now.getDate() - (now.getDay() === 0 ? 6 : now.getDay() - 1),
+      0,
+      0,
+      0,
+      0
+    );
+  }
+
+  let end = new Date(customEnd);
+  end.setHours(23, 59, 59, 999);
+  if (customEnd == "end") {
+    end = new Date(3000, 0, 1, 0, 0, 0, 0); // far future date
+  } else {
+    if (isNaN(end.getTime())) {
+      log(
+        username,
+        execution,
+        "info",
+        `Invalid custom end date ${customEnd}, using default end date instead`
+      );
+    }
+    if (isNaN(end.getTime()) || !customEnd) {
+      end = new Date(
+        start.getFullYear(),
+        start.getMonth(),
+        start.getDate() + 28 - 1,
+        23,
+        59,
+        59,
+        999
+      );
+    }
+  }
+
+  return { start, end };
+}
+
+export async function refreshUser(
+  username,
+  user,
+  customStart = null,
+  customEnd = null,
+  noRemoval = false
+) {
   const execution = crypto
     .randomBytes(6)
     .toString("base64")
     .replace("+", "a")
     .replace("/", "a");
-  if (
-    new Date() - (user.lastRefresh || 0) <
-    (fullRefresh ? fullTimeout : quickTimeout)
-  ) {
-    log(
-      username,
-      execution,
-      "error",
-      "Skipping sync: Last sync was too recent, timeout of " +
-        `${Math.ceil(
-          ((fullRefresh ? fullTimeout : quickTimeout) -
-            (new Date() - (user.lastRefresh || 0))) /
-            1000
-        )} seconds remaining`
-    );
-    return;
-  }
-  user.lastRefresh = new Date();
-  await saveUserFile(username, user);
+  const logName = `${username}/${execution}`;
+
   try {
+    let { start, end } = parseStartEnd(customStart, customEnd);
+
+    const longRefresh = end - start > 30 * 24 * 60 * 60 * 1000; // 30 days
+
+    // check timeout
+    if (
+      new Date() - (user.lastRefresh || 0) <
+      (longRefresh ? longTimeout : quickTimeout)
+    ) {
+      log(
+        username,
+        execution,
+        "error",
+        "Skipping sync: Last sync was too recent, timeout of " +
+          `${Math.ceil(
+            ((longRefresh ? longTimeout : quickTimeout) -
+              (new Date() - (user.lastRefresh || 0))) /
+              1000
+          )} seconds remaining`
+      );
+      return;
+    }
+
+    // update last refresh time
+    user.lastRefresh = new Date();
+    await saveUserFile(username, user);
+
+    // load webuntis password
     let password = "";
     if (!user.webuntis_password) {
       log(
@@ -133,29 +199,27 @@ export async function refreshUser(username, user, fullRefresh = false) {
       );
       return;
     }
-    const {
-      start,
-      end,
-      data,
-      error: fetchError,
-    } = await fetchWebUntis(
+
+    // fetch webuntis
+    let webuntisOutput = await fetchWebUntis(
       username,
       user.webuntis,
       password,
       execution,
-      fullRefresh
+      start,
+      end
     );
-
+    const { data, newsEnd, error: fetchError } = webuntisOutput;
+    ({ start, end } = webuntisOutput);
     if (fetchError) {
       log(username, execution, "error", fetchError);
       return;
     }
 
-    const logName = `${username}/${execution}`;
-
     console.info(`[${logName}]`, "Generate lessons from timetable");
     const lessons = await generateLessons(data, user);
 
+    // load google api
     const api = await loadApi(username);
     if (!api) {
       log(
@@ -166,7 +230,6 @@ export async function refreshUser(username, user, fullRefresh = false) {
       );
       return;
     }
-
     const {
       calendarId,
       title,
@@ -188,42 +251,65 @@ export async function refreshUser(username, user, fullRefresh = false) {
       skipped: 0,
       created: 0,
       updated: 0,
+      deleted: 0,
       errors: 0,
     };
 
     const queue = new TaskQueue(5);
-    await uploadHolidays(
+
+    await migrateEvents(logName, api, calendarId, queue, stats);
+    await queue.waitUntilEmpty();
+
+    // upload holidays
+    await upload(
       logName,
       api,
       calendarId,
       data.holidays,
+      "holiday",
       queue,
       stats,
-      user.google
+      user.google,
+      noRemoval
     );
-    await uploadNews(
+
+    // upload news
+    await upload(
       logName,
       api,
       calendarId,
       data.news,
+      "motd",
       queue,
       stats,
-      user.google
+      user.google,
+      noRemoval,
+      start,
+      newsEnd
     );
-    await uploadLessons(
+
+    // upload lessons
+    await upload(
       logName,
       api,
       calendarId,
       lessons,
+      "lesson",
       queue,
       stats,
       user.google,
+      noRemoval,
       start,
       end
     );
     await queue.waitUntilEmpty();
 
-    if (stats.errors === 0 && stats.created === 0 && stats.updated === 0) {
+    if (
+      stats.errors === 0 &&
+      stats.created === 0 &&
+      stats.updated === 0 &&
+      stats.deleted === 0
+    ) {
       log(
         username,
         execution,
@@ -250,7 +336,7 @@ export async function refreshUser(username, user, fullRefresh = false) {
       );
       return;
     }
-    if (stats.created > 0 || stats.updated > 0) {
+    if (stats.created > 0 || stats.updated > 0 || stats.deleted > 0) {
       log(
         username,
         execution,

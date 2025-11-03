@@ -475,7 +475,11 @@ app.post(
 
 app.post(
   "/api/sync",
-  [body("full_refresh").optional().isBoolean()],
+  [
+    body("start").optional().isString().trim(),
+    body("end").optional().isString().trim(),
+    body("no_removal").optional().isBoolean(),
+  ],
   authenticate,
   refresh,
   async (req, res) => {
@@ -488,11 +492,13 @@ app.post(
           .status(400)
           .json({ errors: errors.array(), token: req.token });
       }
-      const fullRefresh = req.body && req.body.full_refresh;
+      const noRemoval = req.body && req.body.no_removal;
+      const start = req.body && req.body.start ? req.body.start : null;
+      const end = req.body && req.body.end ? req.body.end : null;
 
       console.info("[api]", "User", req.username, "requested sync");
 
-      refreshUser(req.username, req.user, fullRefresh);
+      refreshUser(req.username, req.user, start, end, noRemoval);
 
       res.status(200).json({ token: req.token });
     } catch (err) {

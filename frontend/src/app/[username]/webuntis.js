@@ -177,17 +177,17 @@ export default function WebUntis({ user, config, fetchData, router }) {
         </DialogTrigger>
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
-            <DialogTitle>
+            <DialogTitle className="mb-1">
               {config.webuntis.password_configured ? "Change" : "Configure"}{" "}
               Password
             </DialogTitle>
-            <DialogDescription>
+            <DialogDescription className="mb-4">
               Please provide your WebUntis login password
             </DialogDescription>
           </DialogHeader>
           <form
             onSubmit={(event) => handleConfigurePassword(event, password)}
-            className="space-y-3"
+            className="space-y-3 mb-2"
           >
             <div className="relative">
               <Input
@@ -219,7 +219,7 @@ export default function WebUntis({ user, config, fetchData, router }) {
             </Button>
           </form>
           <DialogFooter>
-            <DialogDescription className="text-sm text-red-500">
+            <DialogDescription className="text-sm text-red-600">
               Your credentials will be encrypted and stored securely. They will
               never leave our servers!
             </DialogDescription>
