@@ -927,11 +927,9 @@ async function generateLessonFields(lesson, colors) {
     summary: title,
     description: description,
     location: "",
+    colorId: color ? color : "0",
   };
 
-  if (color) {
-    fields.colorId = color;
-  }
   if (transparency === "transparent") {
     fields.transparency = transparency;
   }
