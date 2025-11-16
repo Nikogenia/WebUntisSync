@@ -331,7 +331,7 @@ export async function refreshUser(
       queue,
       stats,
       user.google,
-      noRemoval,
+      noRemoval || !longRefresh,
       dry,
       debug
     );

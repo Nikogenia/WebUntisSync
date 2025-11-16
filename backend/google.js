@@ -361,6 +361,7 @@ async function updateEvent(
         description:
           properties.description +
           `\n\n<i>Synced with WebUntis at ${formatToLocalISO(new Date())}</i>`,
+        status: "confirmed",
       },
     });
 
@@ -404,6 +405,7 @@ async function createEvent(
           properties.description +
           `\n\n<i>Synced with WebUntis at ${formatToLocalISO(new Date())}</i>`,
         id: eventId,
+        status: "confirmed",
       },
     });
 
@@ -411,12 +413,11 @@ async function createEvent(
     return CREATED;
   } catch (err) {
     if (err.code === 409) {
-      console.error(
+      console.warn(
         `[${name}]`,
-        "Event ID conflict when creating event:",
-        eventId
+        `Event ID ${eventId} conflict when creating event, trying update instead`
       );
-      return ERROR;
+      return await updateEvent(name, api, calendarId, eventId, properties, 1);
     }
     if (err.code !== 403 && err.code !== 429) {
       console.error(`[${name}]`, "Error creating event:", err);
@@ -696,11 +697,18 @@ export async function upload(
       );
       if (!dry) {
         queue(async () => {
-          if (
-            (await createEvent(name, api, calendarId, eventId, event, 1)) ===
-            CREATED
-          ) {
+          const result = await createEvent(
+            name,
+            api,
+            calendarId,
+            eventId,
+            event,
+            1
+          );
+          if (result === CREATED) {
             stats.created++;
+          } else if (result === UPDATED) {
+            stats.updated++;
           } else {
             stats.errors++;
           }
@@ -808,7 +816,9 @@ async function generateLessonFields(lesson, colors) {
   }
   if (lesson.examType) {
     title += `[${lesson.examType}] `;
-    color = colors.examColor || "6";
+    if (!lesson.cancelled) {
+      color = colors.examColor || "6";
+    }
     description += `<b>EXAM [${lesson.examType}]</b>\n`;
     if (lesson.examName && lesson.examText) {
       description += `${lesson.examName} | ${lesson.examText}\n\n`;

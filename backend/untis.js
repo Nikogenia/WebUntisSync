@@ -358,8 +358,14 @@ export async function generateLessons(data) {
       const examStart = WebUntis.convertUntisTime(exam.startTime, examDate);
       const examEnd = WebUntis.convertUntisTime(exam.endTime, examDate);
       if (
-        (start >= examStart && start < examEnd) ||
-        (end > examStart && end <= examEnd)
+        ((start >= examStart && start < examEnd) ||
+          (end > examStart && end <= examEnd)) &&
+        (details.subjects.some(
+          (s) => s.name === exam.subject || s.longName === exam.subject
+        ) ||
+          details.originalSubjects.some(
+            (s) => s.name === exam.subject || s.longName === exam.subject
+          ))
       ) {
         examType = exam.examType;
         examName = exam.name;
