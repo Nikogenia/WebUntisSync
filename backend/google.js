@@ -263,7 +263,9 @@ function matchEvent(name, eventId, existing, target) {
     x === y ||
     (Number.isNaN(x) && Number.isNaN(y)) ||
     (x === undefined && y === "") ||
-    (x === "" && y === undefined);
+    (x === "" && y === undefined) ||
+    (x === "0" && y === undefined) ||
+    (x === undefined && y === "0");
   const same =
     equal(existing.summary, target.summary) &&
     equal(description, target.description) &&
