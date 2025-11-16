@@ -18,4 +18,4 @@ node --version
 echo "----------------------------------------"
 echo "Start node.js"
 echo "----------------------------------------"
-exec npm run start
+exec npm run start -- "$@"

@@ -20,7 +20,7 @@ export async function fetchWebUntis(
       credentials.server
     );
 
-    log(
+    await log(
       username,
       execution,
       "info",
@@ -67,7 +67,7 @@ export async function fetchWebUntis(
       start = startOfSchoolyear;
     }
     if (start > end) {
-      log(
+      await log(
         username,
         execution,
         "info",

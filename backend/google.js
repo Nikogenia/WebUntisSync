@@ -1,7 +1,11 @@
 import { google } from "googleapis";
 import { google as googleConfig } from "./config.js";
 import { users, saveUserFile } from "./config.js";
-import { formatToLocalISODate, formatToLocalISO } from "./utils.js";
+import {
+  formatToLocalISODate,
+  formatToLocalISO,
+  saveDebugDump,
+} from "./utils.js";
 
 // Google Calendar event color palette
 const COLOR_PALETTE = {
@@ -139,6 +143,7 @@ export async function loadApi(username) {
       `Error loading Google OAuth for ${username}:`,
       err
     );
+    return null;
   }
 }
 
@@ -456,7 +461,15 @@ async function deleteEvent(name, api, calendarId, eventId, timeOut) {
   }
 }
 
-export async function migrateEvents(name, api, calendarId, queue, stats) {
+export async function migrateEvents(
+  name,
+  api,
+  calendarId,
+  queue,
+  stats,
+  dry = false,
+  debug = false
+) {
   const migrate1 = await listEvents(
     name,
     api,
@@ -485,15 +498,21 @@ export async function migrateEvents(name, api, calendarId, queue, stats) {
   }
   const events = {
     ...Object.fromEntries(
-      migrate1.map((e) => [e.id, [e, "version 1 to 2, private to shared"]])
+      migrate2.map((e) => [e.id, [e, "private to shared"]])
     ),
     ...Object.fromEntries(
-      migrate2.map((e) => [e.id, [e, "private to shared"]])
+      migrate1.map((e) => [e.id, [e, "version 1 to 2, private to shared"]])
     ),
   };
   if (Object.keys(events).length === 0) {
     console.info(`[${name}]`, "No events to migrate found");
     return;
+  }
+  if (debug) {
+    await saveDebugDump(
+      `debug-${name.replace("/", "-")}-migrate-events.json`,
+      JSON.stringify(events, null, 4)
+    );
   }
   for (const [eventId, [event, migrationType]] of Object.entries(events)) {
     try {
@@ -532,16 +551,18 @@ export async function migrateEvents(name, api, calendarId, queue, stats) {
         endTime,
         `(${migrationType})`
       );
-      queue(async () => {
-        if (
-          (await updateEvent(name, api, calendarId, eventId, target, 1)) ===
-          UPDATED
-        ) {
-          stats.updated++;
-        } else {
-          stats.errors++;
-        }
-      });
+      if (!dry) {
+        queue(async () => {
+          if (
+            (await updateEvent(name, api, calendarId, eventId, target, 1)) ===
+            UPDATED
+          ) {
+            stats.updated++;
+          } else {
+            stats.errors++;
+          }
+        });
+      }
     } catch (err) {
       console.error(`[${name}]`, "Unexpected error migrating lesson:", err);
     }
@@ -558,6 +579,8 @@ export async function upload(
   stats,
   colors,
   noRemoval,
+  dry = false,
+  debug = false,
   start = undefined,
   end = undefined
 ) {
@@ -576,6 +599,12 @@ export async function upload(
     console.error(`[${name}]`, `Error listing events, skipping ${type} upload`);
     stats.errors += elements.length;
     return;
+  }
+  if (debug) {
+    await saveDebugDump(
+      `debug-${name.replace("/", "-")}-upload-${type}.json`,
+      JSON.stringify(events, null, 4)
+    );
   }
 
   const toDelete = events.map((event) => event.id);
@@ -632,16 +661,18 @@ export async function upload(
           "to",
           formatToLocalISO(element.end)
         );
-        queue(async () => {
-          if (
-            (await updateEvent(name, api, calendarId, eventId, target, 1)) ===
-            UPDATED
-          ) {
-            stats.updated++;
-          } else {
-            stats.errors++;
-          }
-        });
+        if (!dry) {
+          queue(async () => {
+            if (
+              (await updateEvent(name, api, calendarId, eventId, target, 1)) ===
+              UPDATED
+            ) {
+              stats.updated++;
+            } else {
+              stats.errors++;
+            }
+          });
+        }
         break;
       }
       if (skipped_or_updated) continue;
@@ -663,16 +694,18 @@ export async function upload(
         "to",
         formatToLocalISO(element.end)
       );
-      queue(async () => {
-        if (
-          (await createEvent(name, api, calendarId, eventId, event, 1)) ===
-          CREATED
-        ) {
-          stats.created++;
-        } else {
-          stats.errors++;
-        }
-      });
+      if (!dry) {
+        queue(async () => {
+          if (
+            (await createEvent(name, api, calendarId, eventId, event, 1)) ===
+            CREATED
+          ) {
+            stats.created++;
+          } else {
+            stats.errors++;
+          }
+        });
+      }
     } catch (err) {
       console.error(`[${name}]`, `Unexpected error uploading ${type}:`, err);
     }
@@ -702,6 +735,7 @@ export async function upload(
       "to",
       endTime
     );
+    if (dry) continue;
     queue(async () => {
       if ((await deleteEvent(name, api, calendarId, eventId, 1)) === DELETED) {
         stats.deleted++;

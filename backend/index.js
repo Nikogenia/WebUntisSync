@@ -1,5 +1,5 @@
 import crypto from "crypto";
-import { TaskQueue, decrypt } from "./utils.js";
+import { TaskQueue, decrypt, saveDebugDump } from "./utils.js";
 import { app as api } from "./api.js";
 import {
   loadConfig,
@@ -16,6 +16,51 @@ const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
 const quickTimeout = 15 * 1000; // 15 seconds
 const longTimeout = 5 * 60 * 1000; // 5 minutes
 const queued = new Map();
+
+const args = process.argv.slice(2);
+let debugUsername = null;
+let debugStart = null;
+let debugEnd = null;
+let debugNoRemoval = false;
+let dryRun = false;
+for (let i = 0; i < args.length; i++) {
+  if (args[i] === "--debug" && i + 1 < args.length) {
+    debugUsername = args[i + 1];
+    i++; // Skip the next argument as it's the username
+  } else if (args[i] === "--dry" || args[i] === "-d") {
+    dryRun = true;
+    console.info("[DEBUG] Dry run mode enabled");
+  } else if (
+    (args[i] === "--start" || args[i] === "-s") &&
+    i + 1 < args.length
+  ) {
+    const debugStartInput = args[i + 1];
+    debugStart = new Date(debugStartInput);
+    if (isNaN(debugStart.getTime())) {
+      console.warn(`[DEBUG] Invalid start date provided: ${debugStartInput}`);
+      debugStart = null;
+    } else {
+      console.info(`[DEBUG] Custom start date set to: ${debugStart}`);
+    }
+    i++;
+  } else if ((args[i] === "--end" || args[i] === "-e") && i + 1 < args.length) {
+    let debugEndInput = args[i + 1];
+    debugEnd = new Date(debugEndInput);
+    if (debugEndInput === "end") {
+      debugEnd = "end";
+      console.info(`[DEBUG] Custom end date set to: end`);
+    } else if (isNaN(debugEnd.getTime())) {
+      console.warn(`[DEBUG] Invalid end date provided: ${debugEndInput}`);
+      debugEnd = null;
+    } else {
+      console.info(`[DEBUG] Custom end date set to: ${debugEnd}`);
+    }
+    i++;
+  } else if (args[i] === "--no-removal" || args[i] === "-n") {
+    debugNoRemoval = true;
+    console.info("[DEBUG] No removal mode enabled");
+  }
+}
 
 async function cycle() {
   await loadConfig();
@@ -81,13 +126,13 @@ async function cycle() {
   }
 }
 
-function parseStartEnd(customStart, customEnd) {
+async function parseStartEnd(customStart, customEnd) {
   const now = new Date();
 
   let start = new Date(customStart);
   start.setHours(0, 0, 0, 0);
   if (isNaN(start.getTime())) {
-    log(
+    await log(
       username,
       execution,
       "info",
@@ -112,7 +157,7 @@ function parseStartEnd(customStart, customEnd) {
     end = new Date(3000, 0, 1, 0, 0, 0, 0); // far future date
   } else {
     if (isNaN(end.getTime())) {
-      log(
+      await log(
         username,
         execution,
         "info",
@@ -140,17 +185,19 @@ export async function refreshUser(
   user,
   customStart = null,
   customEnd = null,
-  noRemoval = false
+  noRemoval = false,
+  dry = false,
+  debug = false
 ) {
   const execution = crypto
     .randomBytes(6)
     .toString("base64")
-    .replace("+", "a")
-    .replace("/", "a");
+    .replaceAll("+", "a")
+    .replaceAll("/", "a");
   const logName = `${username}/${execution}`;
 
   try {
-    let { start, end } = parseStartEnd(customStart, customEnd);
+    let { start, end } = await parseStartEnd(customStart, customEnd);
 
     const longRefresh = end - start > 30 * 24 * 60 * 60 * 1000; // 30 days
 
@@ -159,7 +206,7 @@ export async function refreshUser(
       new Date() - (user.lastRefresh || 0) <
       (longRefresh ? longTimeout : quickTimeout)
     ) {
-      log(
+      await log(
         username,
         execution,
         "error",
@@ -174,13 +221,15 @@ export async function refreshUser(
     }
 
     // update last refresh time
-    user.lastRefresh = new Date();
-    await saveUserFile(username, user);
+    if (!dry) {
+      user.lastRefresh = new Date();
+      await saveUserFile(username, user);
+    }
 
     // load webuntis password
     let password = "";
     if (!user.webuntis_password) {
-      log(
+      await log(
         username,
         execution,
         "error",
@@ -191,7 +240,7 @@ export async function refreshUser(
     try {
       password = decrypt(user.webuntis_password, encryptionKey);
     } catch (e) {
-      log(
+      await log(
         username,
         execution,
         "error",
@@ -211,18 +260,30 @@ export async function refreshUser(
     );
     const { data, newsEnd, error: fetchError } = webuntisOutput;
     ({ start, end } = webuntisOutput);
+    if (debug) {
+      await saveDebugDump(
+        `debug-${username}-${execution}-webuntis.json`,
+        JSON.stringify(data, null, 4)
+      );
+    }
     if (fetchError) {
-      log(username, execution, "error", fetchError);
+      await log(username, execution, "error", fetchError);
       return;
     }
 
     console.info(`[${logName}]`, "Generate lessons from timetable");
     const lessons = await generateLessons(data, user);
+    if (debug) {
+      await saveDebugDump(
+        `debug-${username}-${execution}-lessons.json`,
+        JSON.stringify(lessons, null, 4)
+      );
+    }
 
     // load google api
     const api = await loadApi(username);
     if (!api) {
-      log(
+      await log(
         username,
         execution,
         "error",
@@ -236,11 +297,11 @@ export async function refreshUser(
       error: calendarError,
     } = await getCalendar(username, api);
     if (calendarError) {
-      log(username, execution, "error", calendarError);
+      await log(username, execution, "error", calendarError);
       return;
     }
 
-    log(
+    await log(
       username,
       execution,
       "info",
@@ -257,7 +318,7 @@ export async function refreshUser(
 
     const queue = new TaskQueue(5);
 
-    await migrateEvents(logName, api, calendarId, queue, stats);
+    await migrateEvents(logName, api, calendarId, queue, stats, dry, debug);
     await queue.waitUntilEmpty();
 
     // upload holidays
@@ -270,7 +331,9 @@ export async function refreshUser(
       queue,
       stats,
       user.google,
-      noRemoval
+      noRemoval,
+      dry,
+      debug
     );
 
     // upload news
@@ -284,6 +347,8 @@ export async function refreshUser(
       stats,
       user.google,
       noRemoval,
+      dry,
+      debug,
       start,
       newsEnd
     );
@@ -299,6 +364,8 @@ export async function refreshUser(
       stats,
       user.google,
       noRemoval,
+      dry,
+      debug,
       start,
       end
     );
@@ -310,7 +377,7 @@ export async function refreshUser(
       stats.updated === 0 &&
       stats.deleted === 0
     ) {
-      log(
+      await log(
         username,
         execution,
         "success",
@@ -323,7 +390,7 @@ export async function refreshUser(
       return;
     }
     if (stats.errors === 0) {
-      log(
+      await log(
         username,
         execution,
         "success",
@@ -337,7 +404,7 @@ export async function refreshUser(
       return;
     }
     if (stats.created > 0 || stats.updated > 0 || stats.deleted > 0) {
-      log(
+      await log(
         username,
         execution,
         "warning",
@@ -350,7 +417,7 @@ export async function refreshUser(
       );
       return;
     }
-    log(
+    await log(
       username,
       execution,
       "error",
@@ -363,7 +430,7 @@ export async function refreshUser(
     );
   } catch (e) {
     console.info(`[${username}/${execution}]`, "Unexpected error:", e);
-    log(
+    await log(
       username,
       execution,
       "error",
@@ -374,8 +441,30 @@ export async function refreshUser(
 
 await loadConfig();
 console.info("Loaded", Object.keys(users).length, "users");
-
 console.info("Working with timezone", timeZone);
+
+if (debugUsername) {
+  const user = users[debugUsername];
+  if (!user) {
+    console.error(`[DEBUG] User ${debugUsername} not found in configuration`);
+    process.exit(1);
+  }
+  console.info(`[DEBUG] Debug mode enabled for user: ${debugUsername}`);
+  console.info(`[DEBUG] ${JSON.stringify(user, null, 2)}`);
+  console.info(`[DEBUG] Triggering debug refresh now`);
+  await refreshUser(
+    debugUsername,
+    user,
+    debugStart,
+    debugEnd,
+    debugNoRemoval,
+    dryRun,
+    true
+  );
+  console.info(`[DEBUG] Debug refresh completed`);
+  process.exit(0);
+}
+
 setInterval(cycle, 60 * 1000);
 cycle();
 

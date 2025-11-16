@@ -5,7 +5,8 @@
   "main": "index.js",
   "type": "module",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "debug-dry": "node index.js --debug nikogenia --dry",
+    "debug": "node index.js --debug nikogenia",
     "start": "node index.js"
   },
   "keywords": [],
