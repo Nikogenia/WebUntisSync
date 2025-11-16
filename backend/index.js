@@ -260,7 +260,7 @@ export async function refreshUser(
     );
     const { data, newsEnd, error: fetchError } = webuntisOutput;
     ({ start, end } = webuntisOutput);
-    if (debug) {
+    if (debug && data) {
       await saveDebugDump(
         `debug-${username}-${execution}-webuntis.json`,
         JSON.stringify(data, null, 4)

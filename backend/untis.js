@@ -24,7 +24,8 @@ export async function fetchWebUntis(
       username,
       execution,
       "info",
-      `Logging in to WebUntis server ${credentials.server} with user ${credentials.username} at ${credentials.school}`
+      `Logging in to WebUntis server ${credentials.server} with user ${credentials.username}` +
+        (credentials.school ? ` at ${credentials.school}` : "")
     );
     await untis.login();
 
@@ -143,6 +144,7 @@ export async function fetchWebUntis(
       newsEnd: newsEnd,
     };
   } catch (e) {
+    console.error(`[${logName}]`, "Error fetching WebUntis data:", e);
     return {
       error: "Failed to fetch WebUntis data: Please check your credentials!",
     };

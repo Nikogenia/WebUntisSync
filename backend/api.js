@@ -318,7 +318,10 @@ app.put(
       req.user.webuntis = {
         ...req.user.webuntis,
         server: newConfig.webuntis?.server || req.user.webuntis.server,
-        school: newConfig.webuntis?.school || req.user.webuntis.school,
+        school:
+          newConfig.webuntis?.school === ""
+            ? ""
+            : newConfig.webuntis?.school || req.user.webuntis.school,
         username: newConfig.webuntis?.username || req.user.webuntis.username,
       };
       req.user.google = {

@@ -50,7 +50,6 @@ export default function Status({
 }) {
   const configured =
     config.webuntis?.server &&
-    config.webuntis?.school &&
     config.webuntis?.username &&
     config.webuntis?.password_configured &&
     config.google?.oauth_configured &&

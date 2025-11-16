@@ -125,7 +125,7 @@ export default function WebUntis({ user, config, fetchData, router }) {
 
   const handleUpdateConfig = async (event) => {
     event.preventDefault();
-    if (!unsavedChanges() || !server || !school || !username) {
+    if (!unsavedChanges() || !server || !username) {
       return;
     }
     try {
@@ -258,7 +258,7 @@ export default function WebUntis({ user, config, fetchData, router }) {
                   </TooltipTrigger>
                   <TooltipContent>
                     the hostname of your school&apos;s WebUntis server, e.g.
-                    nessa.webuntis.com
+                    bogy.webuntis.com
                   </TooltipContent>
                 </Tooltip>
               </Label>
@@ -270,23 +270,28 @@ export default function WebUntis({ user, config, fetchData, router }) {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="school" className={school ? "" : "text-red-600"}>
-                School
+              <Label
+                htmlFor="school"
+                className={school ? "" : "text-muted-foreground"}
+              >
+                School (optional)
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <span tabIndex={0}>
                       <Info
                         className={
-                          "h-3 w-3 cursor-pointer" +
-                          (school
-                            ? " text-muted-foreground"
-                            : " text-red-500 animate-spin")
+                          "h-3 w-3 cursor-pointer text-muted-foreground"
                         }
                       />
                     </span>
                   </TooltipTrigger>
                   <TooltipContent>
-                    <p className="pb-1">
+                    <p className="pb-1 text-red-500">
+                      LEGACY/DEPRECATED (optional)
+                      <br />
+                      Only for compatibility reasons. Leave empty if unsure!
+                    </p>
+                    <p className="py-1">
                       the WebUntis ID of your school, e.g. bodenseegym-lindau
                     </p>
                     Can be determined by going to the WebUntis landing page,
